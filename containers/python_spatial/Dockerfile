@@ -33,20 +33,6 @@ ENV NUMBA_CACHE_DIR=/tmp/numba-cache
 ENV XDG_CACHE_HOME=/tmp/.cache
 ENV PYTHONUNBUFFERED=1
 
-RUN python - <<'PY'
-import nbformat
-import papermill
-import yaml
-import session_info
-import spatialdata
-import spatialdata_io
-import spatialdata_plot
-import scanpy
-import squidpy
-import rapids_singlecell
-print("python runtime ok")
-PY
-
 WORKDIR /work
 
 ENTRYPOINT ["/usr/bin/tini", "--"]

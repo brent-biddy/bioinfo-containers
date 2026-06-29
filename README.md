@@ -30,7 +30,7 @@ apptainer exec /scratch/$USER/sif/python_spatial_1.0.0.sif python my_script.py
 2. Build and test locally:
 
 ```bash
-./scripts/build.sh python_spatial
+docker build -t python_spatial:local containers/python_spatial
 ./scripts/test.sh python_spatial
 ```
 
@@ -54,7 +54,7 @@ containers/
     CHANGELOG.md
 ```
 
-Add the new container name to the `release.yml` tag pattern if needed, build locally to verify, then tag to release.
+Build locally to verify, then tag to release.
 
 ## GitHub configuration
 
