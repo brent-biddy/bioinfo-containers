@@ -40,7 +40,7 @@ jobs:
       - name: Build and push ${{ steps.parse.outputs.container }}:${{ steps.parse.outputs.version }}
         uses: docker/build-push-action@v6
         with:
-          context: containers/${{ steps.parse.outputs.container }}
+          context: definitions/${{ steps.parse.outputs.container }}
           push: true
           tags: |
             ${{ steps.parse.outputs.image }}:${{ steps.parse.outputs.version }}

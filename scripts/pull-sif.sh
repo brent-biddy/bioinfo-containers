@@ -21,7 +21,7 @@ usage() {
 
 CONTAINER="$1"
 VERSION="$2"
-OUTDIR="${3:-$(dirname "$0")/../containers/${CONTAINER}}"
+OUTDIR="${3:-$(dirname "$0")/../definitions/${CONTAINER}}"
 
 IMAGE="docker://ghcr.io/${GHCR_OWNER}/${CONTAINER}:${VERSION}"
 OUTFILE="${OUTDIR}/${CONTAINER}_${VERSION}.sif"

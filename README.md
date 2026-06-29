@@ -13,7 +13,7 @@ Versioned, reproducible Docker images for the lab. Build locally, then push a gi
 ### Local (Docker)
 
 ```bash
-docker build -t python_spatial:local containers/python_spatial
+docker build -t python_spatial:local definitions/python_spatial
 docker run --rm -v $PWD:/work python_spatial:local python my_script.py
 ```
 
@@ -28,10 +28,10 @@ export GHCR_OWNER=babiddy755
 ./scripts/pull-sif.sh python_spatial 1.0.0
 ```
 
-The SIF lands at `containers/python_spatial/python_spatial_1.0.0.sif` and is gitignored.
+The SIF lands at `definitions/python_spatial/python_spatial_1.0.0.sif` and is gitignored.
 
 ```bash
-apptainer exec containers/python_spatial/python_spatial_1.0.0.sif python my_script.py
+apptainer exec definitions/python_spatial/python_spatial_1.0.0.sif python my_script.py
 ```
 
 ## Releasing a new version
@@ -40,13 +40,13 @@ apptainer exec containers/python_spatial/python_spatial_1.0.0.sif python my_scri
 2. Build and test locally:
 
 ```bash
-docker build -t python_spatial:local containers/python_spatial
+docker build -t python_spatial:local definitions/python_spatial
 ```
 
 3. Commit and tag to release:
 
 ```bash
-git add containers/python_spatial/environment.yml
+git add definitions/python_spatial/environment.yml
 git commit -m "..."
 git tag python_spatial/v1.1.0
 git push origin python_spatial/v1.1.0
@@ -57,7 +57,7 @@ GitHub Actions builds the image and pushes `ghcr.io/babiddy755/python_spatial:1.
 ## Adding a new container
 
 ```
-containers/
+definitions/
   my-container/
     Dockerfile
     environment.yml
