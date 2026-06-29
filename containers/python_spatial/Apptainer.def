@@ -24,14 +24,14 @@ From: mambaorg/micromamba:1.5.10-cuda12.5.1-ubuntu22.04
     rm -f /tmp/quarto.deb
 
     test -f /environment.yml
-    micromamba create -y -n spatial -f /environment.yml
-    /opt/conda/envs/spatial/bin/python -m ipykernel install --sys-prefix --name spatial --display-name "Python (spatial)"
+    micromamba create -y -n python_spatial -f /environment.yml
+    /opt/conda/envs/python_spatial/bin/python -m ipykernel install --sys-prefix --name python_spatial --display-name "Python (python_spatial)"
     micromamba clean --all --yes
 
     mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache
 
 %environment
-    export PATH=/opt/conda/envs/spatial/bin:/opt/conda/bin:$PATH
+    export PATH=/opt/conda/envs/python_spatial/bin:/opt/conda/bin:$PATH
     export MPLCONFIGDIR=/tmp/matplotlib
     export NUMBA_CACHE_DIR=/tmp/numba-cache
     export XDG_CACHE_HOME=/tmp/.cache
@@ -41,7 +41,7 @@ From: mambaorg/micromamba:1.5.10-cuda12.5.1-ubuntu22.04
     exec /usr/bin/tini -- "$@"
 
 %test
-    export PATH=/opt/conda/envs/spatial/bin:/opt/conda/bin:$PATH
+    export PATH=/opt/conda/envs/python_spatial/bin:/opt/conda/bin:$PATH
     python - <<'PY'
 import nbformat
 import papermill

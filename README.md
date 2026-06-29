@@ -7,7 +7,7 @@ Versioned, reproducible Docker images for the lab. CI builds and tests on every 
 | Name | Description | Docker Hub |
 |------|-------------|------------|
 | `scrnaseq` | Single-cell RNA-seq (scanpy, scvi-tools, scrublet) | `ORG/scrnaseq` |
-| `spatial` | Spatial omics (squidpy, spatialdata, spatialdata-io) | `ORG/spatial` |
+| `python_spatial` | Spatial omics — Python (squidpy, spatialdata, rapids-singlecell) | `ORG/python_spatial` |
 
 ## Using an image
 
