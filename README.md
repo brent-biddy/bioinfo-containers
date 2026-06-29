@@ -30,8 +30,8 @@ apptainer exec /scratch/$USER/sif/python_spatial_1.0.0.sif python my_script.py
 2. Build and test locally:
 
 ```bash
-docker build -t python_spatial:test containers/python_spatial
-docker run --rm python_spatial:test python -c "import spatialdata; print('ok')"
+./scripts/build.sh python_spatial
+./scripts/test.sh python_spatial
 ```
 
 3. Update `CHANGELOG.md` and commit.
