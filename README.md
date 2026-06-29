@@ -1,24 +1,24 @@
 # Team Containers
 
-Versioned, reproducible Docker images for the lab. CI builds and tests on every PR; a git tag triggers a push to Docker Hub.
+Versioned, reproducible Docker images for the lab. Build and test locally, then push a git tag to release to Docker Hub.
 
 ## Available containers
 
 | Name | Description | Docker Hub |
 |------|-------------|------------|
-| `python_spatial` | Spatial omics — Python (squidpy, spatialdata, rapids-singlecell) | `ORG/python_spatial` |
+| `python_spatial` | Spatial omics — Python (squidpy, spatialdata, rapids-singlecell) | `babiddy755/python_spatial` |
 
 ## Using an image
 
 **Docker:**
 ```bash
-docker pull ORG/python_spatial:1.0.0
-docker run --rm -v $PWD:/work ORG/python_spatial:1.0.0 python my_script.py
+docker pull babiddy755/python_spatial:1.0.0
+docker run --rm -v $PWD:/work babiddy755/python_spatial:1.0.0 python my_script.py
 ```
 
 **Apptainer/Singularity (HPC):**
 ```bash
-export DOCKERHUB_ORG=ORG
+export DOCKERHUB_ORG=babiddy755
 ./scripts/pull-sif.sh python_spatial 1.0.0 /scratch/$USER/sif
 
 apptainer exec /scratch/$USER/sif/python_spatial_1.0.0.sif python my_script.py
@@ -26,29 +26,35 @@ apptainer exec /scratch/$USER/sif/python_spatial_1.0.0.sif python my_script.py
 
 ## Releasing a new version
 
-1. Update `environment.yml` with pinned versions.
-2. Update `CHANGELOG.md`.
-3. Open a PR — CI will build the image to confirm it works.
-4. After merge, tag the commit:
+1. Update `environment.yml` with the new packages or versions.
+2. Build and test locally:
+
+```bash
+docker build -t python_spatial:test containers/python_spatial
+docker run --rm python_spatial:test python -c "import spatialdata; print('ok')"
+```
+
+3. Update `CHANGELOG.md` and commit.
+4. Tag and push to trigger the Docker Hub release:
 
 ```bash
 git tag python_spatial/v1.1.0
 git push origin python_spatial/v1.1.0
 ```
 
-The `release` workflow builds the image and pushes `ORG/python_spatial:1.1.0` and `:latest` to Docker Hub.
+GitHub Actions builds the image and pushes `babiddy755/python_spatial:1.1.0` and `:latest` to Docker Hub.
 
 ## Adding a new container
 
 ```
 containers/
-  my-tool/
+  my-container/
     Dockerfile
-    environment.yml   # fully pinned conda environment
+    environment.yml
     CHANGELOG.md
 ```
 
-The CI workflow auto-detects any `containers/*` directory that changes in a PR — no workflow edits needed.
+Add the new container name to the `release.yml` tag pattern if needed, build locally to verify, then tag to release.
 
 ## GitHub configuration
 
