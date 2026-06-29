@@ -12,9 +12,22 @@ Versioned, reproducible Docker images for the lab. Build locally, then push a gi
 
 ### Local (Docker)
 
+Build the image:
+
 ```bash
 docker build -t python_spatial:local definitions/python_spatial
+```
+
+Run a script:
+
+```bash
 docker run --rm -v $PWD:/work python_spatial:local python my_script.py
+```
+
+Convert to a local SIF for Apptainer testing:
+
+```bash
+apptainer build definitions/python_spatial/python_spatial_local.sif docker-daemon://python_spatial:local
 ```
 
 ### HPC (Apptainer)

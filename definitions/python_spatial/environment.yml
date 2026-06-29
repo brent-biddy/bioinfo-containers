@@ -17,11 +17,22 @@ dependencies:
   - python-igraph
   - leidenalg
   - cuda-version=12.5
-  - pip:
-    - rapids-singlecell
   - scanpy
   - session-info
   - spatialdata
   - spatialdata-io
   - spatialdata-plot
   - squidpy
+  - pip:
+    - rapids-singlecell
+    - cellpose
+    - seaborn
+    - plotly
+    - gseapy
+    - opencv-python-headless
+    - matplotlib-scalebar
+    - matplotlib-venn
+    - session-info2
+    - dask-image
+    - segment-anything
+    - omnipath
