@@ -16,8 +16,9 @@ dependencies:
   - pyyaml
   - python-igraph
   - leidenalg
-  - rapids-singlecell
   - cuda-version=12.5
+  - pip:
+    - rapids-singlecell
   - scanpy
   - session-info
   - spatialdata

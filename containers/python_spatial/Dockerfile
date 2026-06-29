@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:1.5.10-cuda12.5.1-ubuntu22.04
+FROM mambaorg/micromamba:1.5.10-jammy-cuda-12.5.1
 
 ARG QUARTO_VERSION=1.6.42
 
