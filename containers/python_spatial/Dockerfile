@@ -19,11 +19,11 @@ RUN curl -fsSLo /tmp/quarto.deb \
     gdebi -n /tmp/quarto.deb && \
     rm -f /tmp/quarto.deb
 
-COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/environment.yml
+COPY --chown=$MAMBA_USER:$MAMBA_USER conda-lock.yml /tmp/conda-lock.yml
 
 USER $MAMBA_USER
 
-RUN micromamba create -y -n python_spatial -f /tmp/environment.yml && \
+RUN micromamba create -y -n python_spatial -f /tmp/conda-lock.yml && \
     /opt/conda/envs/python_spatial/bin/python -m ipykernel install --sys-prefix --name python_spatial --display-name "Python (python_spatial)" && \
     micromamba clean --all --yes
 
