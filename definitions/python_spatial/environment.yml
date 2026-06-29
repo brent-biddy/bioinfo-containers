@@ -20,7 +20,7 @@ dependencies:
   - scanpy
   - session-info
   - spatialdata
-  - spatialdata-io
+  - spatialdata-io==0.6.0
   - spatialdata-plot
   - squidpy
   - pip:
