@@ -1,47 +1,58 @@
 # Team Containers
 
-Versioned, reproducible Docker images for the lab. Build and test locally, then push a git tag to release to Docker Hub.
+Versioned, reproducible Docker images for the lab. Build locally, then push a git tag to release to GitHub Container Registry (GHCR).
 
 ## Available containers
 
-| Name | Description | Docker Hub |
-|------|-------------|------------|
-| `python_spatial` | Spatial omics — Python (squidpy, spatialdata, rapids-singlecell) | `babiddy755/python_spatial` |
+| Name | Description | Image |
+|------|-------------|-------|
+| `python_spatial` | Spatial omics — Python (squidpy, spatialdata, rapids-singlecell) | `ghcr.io/babiddy755/python_spatial` |
 
-## Using an image
+## Using a container
 
-**Docker:**
+### Local (Docker)
+
 ```bash
-docker pull babiddy755/python_spatial:1.0.0
-docker run --rm -v $PWD:/work babiddy755/python_spatial:1.0.0 python my_script.py
+docker build -t python_spatial:local containers/python_spatial
+docker run --rm -v $PWD:/work python_spatial:local python my_script.py
 ```
 
-**Apptainer/Singularity (HPC):**
-```bash
-export DOCKERHUB_ORG=babiddy755
-./scripts/pull-sif.sh python_spatial 1.0.0 /scratch/$USER/sif
+### HPC (Apptainer)
 
-apptainer exec /scratch/$USER/sif/python_spatial_1.0.0.sif python my_script.py
+Clone the repo, then pull the SIF next to the definition files:
+
+```bash
+git clone https://github.com/babiddy755/containers.git
+cd containers
+export GHCR_OWNER=babiddy755
+./scripts/pull-sif.sh python_spatial 1.0.0
+```
+
+The SIF lands at `containers/python_spatial/python_spatial_1.0.0.sif` and is gitignored.
+
+```bash
+apptainer exec containers/python_spatial/python_spatial_1.0.0.sif python my_script.py
 ```
 
 ## Releasing a new version
 
 1. Update `environment.yml` with the new packages or versions.
-2. Build locally:
+2. Build and test locally:
 
 ```bash
 docker build -t python_spatial:local containers/python_spatial
 ```
 
-3. Update `CHANGELOG.md` and commit.
-4. Tag and push to trigger the Docker Hub release:
+3. Commit and tag to release:
 
 ```bash
+git add containers/python_spatial/environment.yml
+git commit -m "..."
 git tag python_spatial/v1.1.0
 git push origin python_spatial/v1.1.0
 ```
 
-GitHub Actions builds the image and pushes `babiddy755/python_spatial:1.1.0` and `:latest` to Docker Hub.
+GitHub Actions builds the image and pushes `ghcr.io/babiddy755/python_spatial:1.1.0` and `:latest` to GHCR.
 
 ## Adding a new container
 
@@ -50,17 +61,12 @@ containers/
   my-container/
     Dockerfile
     environment.yml
-    CHANGELOG.md
 ```
 
-Build locally to verify, then tag to release.
+Build locally to verify, then commit and tag to release.
 
 ## GitHub configuration
 
-Set the following in **Settings → Secrets and variables**:
+No secrets needed — the workflow uses the built-in `GITHUB_TOKEN` to push to GHCR.
 
-| Type | Name | Value |
-|------|------|-------|
-| Secret | `DOCKERHUB_USERNAME` | Docker Hub username |
-| Secret | `DOCKERHUB_TOKEN` | Docker Hub access token (not your password) |
-| Variable | `DOCKERHUB_ORG` | Docker Hub org or username used in image names |
+To make the packages publicly accessible, go to the package page on GitHub and set visibility to Public.

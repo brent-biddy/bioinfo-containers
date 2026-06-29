@@ -1,7 +1,7 @@
 name: Release
 
 # Trigger: push a tag in the form  container-name/vX.Y.Z
-# Example: git tag scrnaseq/v1.0.0 && git push origin scrnaseq/v1.0.0
+# Example: git tag python_spatial/v1.0.0 && git push origin python_spatial/v1.0.0
 
 on:
   push:
@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -20,20 +21,21 @@ jobs:
       - name: Parse tag
         id: parse
         run: |
-          TAG="${{ github.ref_name }}"        # e.g. scrnaseq/v1.2.0
-          CONTAINER="${TAG%/v*}"              # scrnaseq
+          TAG="${{ github.ref_name }}"        # e.g. python_spatial/v1.2.0
+          CONTAINER="${TAG%/v*}"              # python_spatial
           VERSION="${TAG#*/v}"               # 1.2.0
           echo "container=$CONTAINER"  >> "$GITHUB_OUTPUT"
           echo "version=$VERSION"      >> "$GITHUB_OUTPUT"
-          echo "image=${{ vars.DOCKERHUB_ORG }}/$CONTAINER" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${{ github.repository_owner }}/$CONTAINER" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push ${{ steps.parse.outputs.container }}:${{ steps.parse.outputs.version }}
         uses: docker/build-push-action@v6
