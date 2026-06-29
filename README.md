@@ -6,23 +6,22 @@ Versioned, reproducible Docker images for the lab. CI builds and tests on every 
 
 | Name | Description | Docker Hub |
 |------|-------------|------------|
-| `scrnaseq` | Single-cell RNA-seq (scanpy, scvi-tools, scrublet) | `ORG/scrnaseq` |
 | `python_spatial` | Spatial omics — Python (squidpy, spatialdata, rapids-singlecell) | `ORG/python_spatial` |
 
 ## Using an image
 
 **Docker:**
 ```bash
-docker pull ORG/scrnaseq:1.0.0
-docker run --rm -v $PWD:/work ORG/scrnaseq:1.0.0 python my_script.py
+docker pull ORG/python_spatial:1.0.0
+docker run --rm -v $PWD:/work ORG/python_spatial:1.0.0 python my_script.py
 ```
 
 **Apptainer/Singularity (HPC):**
 ```bash
 export DOCKERHUB_ORG=ORG
-./scripts/pull-sif.sh scrnaseq 1.0.0 /scratch/$USER/sif
+./scripts/pull-sif.sh python_spatial 1.0.0 /scratch/$USER/sif
 
-apptainer exec /scratch/$USER/sif/scrnaseq_1.0.0.sif python my_script.py
+apptainer exec /scratch/$USER/sif/python_spatial_1.0.0.sif python my_script.py
 ```
 
 ## Releasing a new version
@@ -33,11 +32,11 @@ apptainer exec /scratch/$USER/sif/scrnaseq_1.0.0.sif python my_script.py
 4. After merge, tag the commit:
 
 ```bash
-git tag scrnaseq/v1.1.0
-git push origin scrnaseq/v1.1.0
+git tag python_spatial/v1.1.0
+git push origin python_spatial/v1.1.0
 ```
 
-The `release` workflow builds the image and pushes `ORG/scrnaseq:1.1.0` and `:latest` to Docker Hub.
+The `release` workflow builds the image and pushes `ORG/python_spatial:1.1.0` and `:latest` to Docker Hub.
 
 ## Adding a new container
 
