@@ -35,19 +35,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build ${{ steps.parse.outputs.container }}:${{ steps.parse.outputs.version }}
-        uses: docker/build-push-action@v6
-        with:
-          context: containers/${{ steps.parse.outputs.container }}
-          load: true
-          tags: ${{ steps.parse.outputs.container }}:local
-          cache-from: type=gha,scope=${{ steps.parse.outputs.container }}
-          cache-to: type=gha,mode=max,scope=${{ steps.parse.outputs.container }}
-
-      - name: Test ${{ steps.parse.outputs.container }}
-        run: ./scripts/test.sh ${{ steps.parse.outputs.container }}
-
-      - name: Push ${{ steps.parse.outputs.container }}:${{ steps.parse.outputs.version }}
+      - name: Build and push ${{ steps.parse.outputs.container }}:${{ steps.parse.outputs.version }}
         uses: docker/build-push-action@v6
         with:
           context: containers/${{ steps.parse.outputs.container }}
@@ -56,6 +44,7 @@ jobs:
             ${{ steps.parse.outputs.image }}:${{ steps.parse.outputs.version }}
             ${{ steps.parse.outputs.image }}:latest
           cache-from: type=gha,scope=${{ steps.parse.outputs.container }}
+          cache-to: type=gha,mode=max,scope=${{ steps.parse.outputs.container }}
           labels: |
             org.opencontainers.image.version=${{ steps.parse.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}

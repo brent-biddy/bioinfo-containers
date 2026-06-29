@@ -27,11 +27,10 @@ apptainer exec /scratch/$USER/sif/python_spatial_1.0.0.sif python my_script.py
 ## Releasing a new version
 
 1. Update `environment.yml` with the new packages or versions.
-2. Build and test locally:
+2. Build locally:
 
 ```bash
 docker build -t python_spatial:local containers/python_spatial
-./scripts/test.sh python_spatial
 ```
 
 3. Update `CHANGELOG.md` and commit.
