@@ -25,7 +25,7 @@ dependencies:
   - scanpy
   - session-info
   - spatialdata
-  - spatialdata-io==0.6.0
+  - spatialdata-io
   - spatialdata-plot
   - squidpy
   - pip:
