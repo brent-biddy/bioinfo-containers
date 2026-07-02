@@ -16,7 +16,12 @@ dependencies:
   - pyyaml
   - python-igraph
   - leidenalg
-  - cuda-version=12.5
+  - cuda-version=12.9
+  - cuml=25.06
+  - cuvs=25.06
+  - scikit-learn>=1.6,<1.7
+  - pytorch-gpu
+  - torchvision
   - scanpy
   - session-info
   - spatialdata
@@ -24,6 +29,7 @@ dependencies:
   - spatialdata-plot
   - squidpy
   - pip:
+    - scikit-learn>=1.6,<1.7
     - rapids-singlecell
     - cellpose
     - seaborn

@@ -23,7 +23,7 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/environment.yml
 
 USER $MAMBA_USER
 
-RUN micromamba create -y -n python_spatial -f /tmp/environment.yml && \
+RUN CONDA_OVERRIDE_CUDA=12.9 micromamba create -y -n python_spatial -f /tmp/environment.yml && \
     /opt/conda/envs/python_spatial/bin/python -m ipykernel install --sys-prefix --name python_spatial --display-name "Python (python_spatial)" && \
     micromamba clean --all --yes
 
@@ -32,6 +32,7 @@ ENV MPLCONFIGDIR=/tmp/matplotlib
 ENV NUMBA_CACHE_DIR=/tmp/numba-cache
 ENV XDG_CACHE_HOME=/tmp/.cache
 ENV PYTHONUNBUFFERED=1
+ENV SCIPY_ARRAY_API=1
 
 WORKDIR /work
 
