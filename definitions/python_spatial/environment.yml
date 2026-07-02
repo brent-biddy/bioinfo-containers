@@ -17,8 +17,9 @@ dependencies:
   - python-igraph
   - leidenalg
   - cuda-version=12.9
-  - cuml=25.06
-  - cuvs=25.06
+  - cuml=26.04
+  - cuvs=26.04
+  - cugraph=26.04
   - scikit-learn>=1.6,<1.7
   - pytorch-gpu
   - torchvision
