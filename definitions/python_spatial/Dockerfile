@@ -31,8 +31,14 @@ ENV PATH=/opt/conda/envs/python_spatial/bin:/opt/conda/bin:$PATH
 ENV MPLCONFIGDIR=/tmp/matplotlib
 ENV NUMBA_CACHE_DIR=/tmp/numba-cache
 ENV XDG_CACHE_HOME=/tmp/.cache
+# cupy's JIT kernel cache defaults to ~/.cupy, which doesn't respect
+# XDG_CACHE_HOME and isn't guaranteed writable for whatever user runs it.
+ENV CUPY_CACHE_DIR=/tmp/cupy-cache
 ENV PYTHONUNBUFFERED=1
 ENV SCIPY_ARRAY_API=1
+
+RUN mkdir -p /tmp/cupy-cache && \
+    python -c "import nbformat, papermill, yaml, session_info, spatialdata, spatialdata_io, spatialdata_plot, scanpy, squidpy, rapids_singlecell; print('python runtime ok')"
 
 WORKDIR /work
 

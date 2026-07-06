@@ -4,7 +4,7 @@ channels:
   - nvidia
   - conda-forge
 dependencies:
-  - python=3.11
+  - python=3.12
   - pip
   - ipykernel
   - matplotlib
@@ -31,7 +31,7 @@ dependencies:
   - squidpy
   - pip:
     - scikit-learn>=1.6,<1.7
-    - rapids-singlecell
+    - rapids-singlecell-cu12==0.15.2
     - cellpose
     - seaborn
     - plotly

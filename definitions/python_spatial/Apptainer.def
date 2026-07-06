@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: mambaorg/micromamba:1.5.10-cuda12.5.1-ubuntu22.04
+From: mambaorg/micromamba:1.5.10-jammy-cuda-12.5.1
 
 %files
     environment.yml /environment.yml
@@ -24,17 +24,21 @@ From: mambaorg/micromamba:1.5.10-cuda12.5.1-ubuntu22.04
     rm -f /tmp/quarto.deb
 
     test -f /environment.yml
+    export CONDA_OVERRIDE_CUDA=12.9
     micromamba create -y -n python_spatial -f /environment.yml
     /opt/conda/envs/python_spatial/bin/python -m ipykernel install --sys-prefix --name python_spatial --display-name "Python (python_spatial)"
     micromamba clean --all --yes
 
-    mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache
+    mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache /tmp/cupy-cache
 
 %environment
     export PATH=/opt/conda/envs/python_spatial/bin:/opt/conda/bin:$PATH
     export MPLCONFIGDIR=/tmp/matplotlib
     export NUMBA_CACHE_DIR=/tmp/numba-cache
     export XDG_CACHE_HOME=/tmp/.cache
+    # cupy's JIT kernel cache defaults to ~/.cupy, which doesn't respect
+    # XDG_CACHE_HOME and is read-only for root at build-%test time.
+    export CUPY_CACHE_DIR=/tmp/cupy-cache
     export PYTHONUNBUFFERED=1
 
 %runscript
@@ -42,6 +46,7 @@ From: mambaorg/micromamba:1.5.10-cuda12.5.1-ubuntu22.04
 
 %test
     export PATH=/opt/conda/envs/python_spatial/bin:/opt/conda/bin:$PATH
+    export CUPY_CACHE_DIR=/tmp/cupy-cache
     python - <<'PY'
 import nbformat
 import papermill
