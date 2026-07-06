@@ -1,12 +1,12 @@
 # Team Containers
 
-Versioned Docker images for the lab. Build and push locally to GitHub Container Registry (GHCR).
+Versioned Docker images for the lab. Build and push locally to Docker Hub.
 
 ## Available containers
 
 | Name | Description | Image |
 |------|-------------|-------|
-| `python_spatial` | Spatial omics — Python (squidpy, spatialdata, rapids-singlecell) | `ghcr.io/babiddy755/python_spatial` |
+| `python_spatial` | Spatial omics — Python (squidpy, spatialdata, rapids-singlecell) | `babiddy755/python_spatial` |
 
 ## Using a container
 
@@ -37,7 +37,7 @@ Clone the repo, then pull the SIF next to the definition files:
 ```bash
 git clone https://github.com/brent-biddy/bioinfo-containers.git
 cd bioinfo-containers
-export GHCR_OWNER=babiddy755
+export DOCKERHUB_OWNER=babiddy755
 ./scripts/pull-sif.sh python_spatial 1.2.0
 ```
 
@@ -56,23 +56,23 @@ apptainer exec definitions/python_spatial/python_spatial_1.2.0.sif python my_scr
 docker build -t python_spatial:local definitions/python_spatial
 ```
 
-3. Tag, push to GHCR, and commit:
+3. Tag, push to Docker Hub, and commit:
 
 ```bash
-docker tag python_spatial:local ghcr.io/babiddy755/python_spatial:1.2.0
-docker tag python_spatial:local ghcr.io/babiddy755/python_spatial:latest
-docker push ghcr.io/babiddy755/python_spatial:1.2.0
-docker push ghcr.io/babiddy755/python_spatial:latest
+docker tag python_spatial:local babiddy755/python_spatial:1.2.0
+docker tag python_spatial:local babiddy755/python_spatial:latest
+docker push babiddy755/python_spatial:1.2.0
+docker push babiddy755/python_spatial:latest
 git add definitions/python_spatial/environment.yml
 git commit -m "..."
 git tag python_spatial/v1.2.0
 git push origin main python_spatial/v1.2.0
 ```
 
-First time only — authenticate with GHCR:
+First time only — authenticate with Docker Hub:
 
 ```bash
-echo <your-github-token> | docker login ghcr.io -u babiddy755 --password-stdin
+docker login -u babiddy755
 ```
 
 ## Adding a new container
@@ -84,4 +84,4 @@ definitions/
     environment.yml
 ```
 
-Build locally, push to GHCR, then commit and tag.
+Build locally, push to Docker Hub, then commit and tag.
