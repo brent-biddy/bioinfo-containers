@@ -1,0 +1,105 @@
+# The GPU image: the analysis stack plus RAPIDS, for steps that cluster on a card.
+#
+# Built from definitions/python_cpu/environment.yml plus this directory's overlay, so the
+# analysis packages come from the same file the CPU image uses and cannot drift between them.
+#
+# Replaces python_spatial, which is frozen and will be retired once the repos move over.
+#
+#   apptainer build python_gpu.sif definitions/python_gpu/Apptainer.def
+#
+# %files paths are relative to the working directory at build time, so build from the repo root.
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10-jammy-cuda-12.5.1
+
+%files
+    definitions/python_cpu/environment.yml /base.yml
+    definitions/python_gpu/environment.yml /overlay.yml
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        gdebi-core \
+        git \
+        procps \
+        tini
+    rm -rf /var/lib/apt/lists/*
+
+    QUARTO_VERSION=1.6.42
+    curl -fsSLo /tmp/quarto.deb \
+        "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb"
+    gdebi -n /tmp/quarto.deb
+    rm -f /tmp/quarto.deb
+
+    test -f /base.yml
+    test -f /overlay.yml
+
+    # -n overrides the name in each file, so one env holds both and `python` means one
+    # interpreter. CONDA_OVERRIDE_CUDA lets the solver pick CUDA builds with no driver present
+    # at build time.
+    export CONDA_OVERRIDE_CUDA=12.9
+    micromamba create -y -n python_gpu -f /base.yml
+    micromamba install -y -n python_gpu -f /overlay.yml
+    /opt/conda/envs/python_gpu/bin/python -m ipykernel install --sys-prefix \
+        --name python_gpu --display-name "Python (python_gpu)"
+    micromamba clean --all --yes
+
+    mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache /tmp/cupy-cache
+
+%environment
+    # The image presents a working environment on its own; a pipeline should never have to set
+    # variables to make it function.
+    export PATH=/opt/conda/envs/python_gpu/bin:/opt/conda/bin:$PATH
+
+    # Apptainer bind-mounts $HOME, so kernelspecs under ~/.local/share/jupyter/kernels are
+    # visible in here and Quarto will resolve a kernel from them -- picking an unrelated
+    # project's environment and then succeeding with the wrong package versions rather than
+    # failing outright. Pointing JUPYTER_PATH inward makes this image's kernels the only
+    # discoverable ones, so a notebook needs no `jupyter:` pin.
+    export JUPYTER_PATH=/opt/conda/envs/python_gpu/share/jupyter
+
+    # cupy JIT-compiles kernels and finds the CUDA headers under CONDA_PREFIX, and the
+    # non-login shell a Nextflow `script:` block uses never sets it.
+    export CONDA_PREFIX=/opt/conda/envs/python_gpu
+
+    export MPLCONFIGDIR=/tmp/matplotlib
+    export NUMBA_CACHE_DIR=/tmp/numba-cache
+    export XDG_CACHE_HOME=/tmp/.cache
+    # cupy's JIT kernel cache defaults to ~/.cupy, which does not respect XDG_CACHE_HOME and is
+    # not guaranteed writable for whatever user runs it.
+    export CUPY_CACHE_DIR=/tmp/cupy-cache
+    export PYTHONUNBUFFERED=1
+    export SCIPY_ARRAY_API=1
+
+%runscript
+    exec /usr/bin/tini -- "$@"
+
+%test
+    export PATH=/opt/conda/envs/python_gpu/bin:/opt/conda/bin:$PATH
+    export JUPYTER_PATH=/opt/conda/envs/python_gpu/share/jupyter
+    export CUPY_CACHE_DIR=/tmp/cupy-cache
+
+    # Imports only. Whether a card is reachable is a property of the host, not the image, so it
+    # cannot be tested at build time on a runner without a GPU.
+    python - <<'PY'
+import nbformat, papermill, yaml, session_info
+import spatialdata, spatialdata_io, spatialdata_plot, scanpy, squidpy
+import geopandas, skimage, tifffile
+import rapids_singlecell
+print("python runtime ok")
+PY
+
+    quarto --version
+
+    test -n "$JUPYTER_PATH" || { echo "JUPYTER_PATH unset"; exit 1; }
+    test -n "$CONDA_PREFIX" || { echo "CONDA_PREFIX unset"; exit 1; }
+    case "$(command -v python)" in
+        /opt/conda/envs/python_gpu/bin/python) ;;
+        *) echo "python is $(command -v python), not the env"; exit 1 ;;
+    esac
+    jupyter kernelspec list 2>/dev/null | grep -q "/opt/conda/envs/python_gpu" \
+        || { echo "image kernelspec not discoverable"; exit 1; }
+    echo "configures itself: ok"
