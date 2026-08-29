@@ -37,6 +37,14 @@ dependencies:
 
   # Single cell and spatial
   - anndata=0.12.19
+  # spatialdata depends on pytorch for spatialdata.dataloader, which subclasses
+  # torch.utils.data.Dataset. Nothing in any repo imports torch, so the CPU build is asked for
+  # by name. This image would resolve to it anyway; python_gpu would not, because it exports
+  # CONDA_OVERRIDE_CUDA before installing this file and the solver then prefers the CUDA build
+  # -- which pulls in cuDNN and MAGMA, 3.3 GB that nothing there references either. Pinning it
+  # here rather than in the GPU overlay is deliberate: `micromamba install` swaps the package
+  # it is asked about and leaves the orphans behind, so a late fix strands them in the image.
+  - pytorch-cpu=2.13.0
   - scanpy=1.12.1
   - squidpy=1.8.2
   - spatialdata=0.7.3
