@@ -1,0 +1,94 @@
+# The CPU image: everything the pipelines do that is not GPU work.
+#
+# environment.yml here is also the shared base -- python_gpu builds from it plus its own
+# overlay -- so a package cannot be at a different version in the step that clusters on a card
+# and the step that annotates on a CPU.
+#
+# %files paths are relative to the working directory at build time -- Apptainer has no
+# build-context flag -- so build from the repository root:
+#
+#   apptainer build python_cpu.sif definitions/python_cpu/Apptainer.def
+#
+# There is no Dockerfile. The SIF is what runs on OSCER and under WSL, and converting an OCI
+# image to a SIF is the expensive step -- it exceeds Nextflow's 20 minute pull default and is
+# paid inside a job's wall clock. Building the SIF directly skips that entirely.
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10-jammy
+
+%files
+    definitions/python_cpu/environment.yml /environment.yml
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        gdebi-core \
+        git \
+        procps \
+        tini
+    rm -rf /var/lib/apt/lists/*
+
+    QUARTO_VERSION=1.6.42
+    curl -fsSLo /tmp/quarto.deb \
+        "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb"
+    gdebi -n /tmp/quarto.deb
+    rm -f /tmp/quarto.deb
+
+    test -f /environment.yml
+    micromamba create -y -n python_cpu -f /environment.yml
+    /opt/conda/envs/python_cpu/bin/python -m ipykernel install --sys-prefix \
+        --name python_cpu --display-name "Python (python_cpu)"
+    micromamba clean --all --yes
+
+    mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache
+
+%environment
+    # The image presents a working environment on its own; a pipeline should never have to set
+    # variables to make it function.
+    export PATH=/opt/conda/envs/python_cpu/bin:/opt/conda/bin:$PATH
+
+    # Apptainer bind-mounts $HOME, so kernelspecs under ~/.local/share/jupyter/kernels are
+    # visible in here and Quarto will resolve a kernel from them -- picking an unrelated
+    # project's environment and then succeeding with the wrong package versions rather than
+    # failing outright. Pointing JUPYTER_PATH inward makes this image's kernels the only
+    # discoverable ones, so a notebook needs no `jupyter:` pin and is portable between a conda
+    # env and a container.
+    export JUPYTER_PATH=/opt/conda/envs/python_cpu/share/jupyter
+    export CONDA_PREFIX=/opt/conda/envs/python_cpu
+
+    export MPLCONFIGDIR=/tmp/matplotlib
+    export NUMBA_CACHE_DIR=/tmp/numba-cache
+    export XDG_CACHE_HOME=/tmp/.cache
+    export PYTHONUNBUFFERED=1
+    export SCIPY_ARRAY_API=1
+
+%runscript
+    exec /usr/bin/tini -- "$@"
+
+%test
+    export PATH=/opt/conda/envs/python_cpu/bin:/opt/conda/bin:$PATH
+    export JUPYTER_PATH=/opt/conda/envs/python_cpu/share/jupyter
+
+    python - <<'PY'
+import nbformat, papermill, yaml, session_info
+import spatialdata, spatialdata_io, spatialdata_plot, scanpy, squidpy
+import geopandas, skimage, tifffile
+print("python runtime ok")
+PY
+
+    quarto --version
+
+    # The guarantees above, asserted rather than assumed. These are what a plain import check
+    # cannot catch: that the image configures itself.
+    test -n "$JUPYTER_PATH" || { echo "JUPYTER_PATH unset"; exit 1; }
+    test -n "$CONDA_PREFIX" || { echo "CONDA_PREFIX unset"; exit 1; }
+    case "$(command -v python)" in
+        /opt/conda/envs/python_cpu/bin/python) ;;
+        *) echo "python is $(command -v python), not the env"; exit 1 ;;
+    esac
+    jupyter kernelspec list 2>/dev/null | grep -q "/opt/conda/envs/python_cpu" \
+        || { echo "image kernelspec not discoverable"; exit 1; }
+    echo "configures itself: ok"

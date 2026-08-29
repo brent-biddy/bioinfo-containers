@@ -1,0 +1,48 @@
+# Segmentation: the GPU image plus cellpose.
+#
+# Bootstrapped from a published python_gpu SIF rather than built from the environment files,
+# because a segmentation workflow reads and writes the same objects the analysis steps do -- it
+# loads with spatialdata and may cluster with rapids-singlecell in the same run. Splitting them
+# would mean choosing between two images inside one pipeline.
+#
+# The base tag is pinned deliberately: a cellpose_gpu image is only meaningful against a known
+# analysis stack, and segmentation output has to be reproducible. Bump it when you mean to.
+#
+#   apptainer build cellpose_gpu.sif definitions/cellpose_gpu/Apptainer.def
+#
+# This cannot build until a python_gpu SIF has been published, which is why it is not in the
+# build-check matrix.
+Bootstrap: oras
+From: ghcr.io/brent-biddy/python_gpu-sif:1.0.0
+
+%files
+    definitions/cellpose_gpu/environment.yml /cellpose.yml
+
+%post
+    test -f /cellpose.yml
+
+    # Installed into the existing env rather than a new one, so there is a single interpreter
+    # and `python` means the same thing here as in the base image.
+    export CONDA_OVERRIDE_CUDA=12.9
+    micromamba install -y -n python_gpu -f /cellpose.yml
+    micromamba clean --all --yes
+
+%environment
+    # Inherited from python_gpu: PATH, JUPYTER_PATH, CONDA_PREFIX and the cache locations. The
+    # env name does not change, so nothing here needs restating.
+    export CELLPOSE_LOCAL_MODELS_PATH=/tmp/cellpose-models
+
+%runscript
+    exec /usr/bin/tini -- "$@"
+
+%test
+    export PATH=/opt/conda/envs/python_gpu/bin:/opt/conda/bin:$PATH
+    export CUPY_CACHE_DIR=/tmp/cupy-cache
+
+    python - <<'PY'
+import cellpose, torch
+import spatialdata, rapids_singlecell
+print("cellpose", cellpose.version)
+print("torch cuda build:", torch.version.cuda)
+PY
+    echo "configures itself: ok"

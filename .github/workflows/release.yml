@@ -4,20 +4,36 @@ name: Release
 #
 #   git tag python_cpu/v1.0.0 && git push origin python_cpu/v1.0.0
 #
-# The tag names which definition to build, so one workflow serves every image and adding a
-# new one needs no change here.
+# The tag names which definition to build, so one workflow serves every image and adding a new
+# one needs no change here.
 #
-# Requires two repository secrets: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker Hub
-# access token, not the account password).
+# The SIF is the product, and the only one. Everything runs under Apptainer -- on OSCER and
+# under WSL -- and converting an OCI image to a SIF is the expensive step, not the pull: it
+# exceeds Nextflow's 20 minute default and is paid inside a job's wall clock, which is why
+# merfish_testis carries pullTimeout = '2h'. Publishing a ready-made SIF removes that entirely.
+#
+# There is no Docker anywhere in this repo. The definitions bootstrap from docker:// base
+# images, but nothing produces an OCI artifact, so there is no daemon, no second definition
+# format to keep in step, and no registry credential beyond the built-in GITHUB_TOKEN.
+#
+# Pull one with:
+#
+#   apptainer pull oras://ghcr.io/brent-biddy/python_cpu-sif:1.0.0
 
 on:
   push:
     tags:
       - '*/v[0-9]*'
 
+env:
+  APPTAINER_VERSION: 1.3.6
+
 jobs:
   build-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -28,39 +44,64 @@ jobs:
           TAG="${{ github.ref_name }}"        # python_cpu/v1.0.0
           CONTAINER="${TAG%/v*}"              # python_cpu
           VERSION="${TAG#*/v}"                # 1.0.0
-          if [ ! -f "definitions/${CONTAINER}/Dockerfile" ]; then
-            echo "::error::No definitions/${CONTAINER}/Dockerfile — tag names an image that does not exist"
+          if [ ! -f "definitions/${CONTAINER}/Apptainer.def" ]; then
+            echo "::error::No definitions/${CONTAINER}/Apptainer.def — tag names an image that does not exist"
             exit 1
           fi
           echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION"     >> "$GITHUB_OUTPUT"
 
-      # No disk-space cleanup here on purpose. A hosted runner has roughly 21 GB free and the
-      # GPU images may not fit, but that is worth finding out from a real run rather than
-      # working around in advance. If a GPU tag fails on disk, build and push it locally --
-      # see the README. Only official actions/ and docker/ actions are used.
-      - uses: docker/setup-buildx-action@v3
+      - name: Disk before
+        run: df -h /
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Install Apptainer
+        run: |
+          curl -fsSLo apptainer.deb \
+            "https://github.com/apptainer/apptainer/releases/download/v${APPTAINER_VERSION}/apptainer_${APPTAINER_VERSION}_amd64.deb"
+          sudo apt-get update
+          sudo apt-get install -y ./apptainer.deb
+          rm -f apptainer.deb
+          apptainer --version
 
-      # Context is definitions/, not the image's own directory, because every image is built
-      # from definitions/python_cpu/environment.yml as well as its own overlay.
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: definitions
-          file: definitions/${{ steps.parse.outputs.container }}/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ steps.parse.outputs.container }}:${{ steps.parse.outputs.version }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ steps.parse.outputs.container }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # Context is definitions/, because every image needs python_cpu/environment.yml as well
+      # as its own overlay.
+      #
+      # Built with --notest: %test asserts the image's %environment, which is not yet in
+      # effect during a build-time test run. It is run against the finished SIF in the next
+      # step instead -- which is the artifact that gets published, so that is the meaningful
+      # place to check it.
+      - name: Build SIF
+        run: |
+          sudo apptainer build --notest "${{ steps.parse.outputs.container }}.sif" \
+            "definitions/${{ steps.parse.outputs.container }}/Apptainer.def"
+          ls -lh "${{ steps.parse.outputs.container }}.sif"
+
+      - name: Test the built SIF
+        run: apptainer test "${{ steps.parse.outputs.container }}.sif"
+
+      - name: Push SIF to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            apptainer registry login --username "${{ github.actor }}" --password-stdin oras://ghcr.io
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          NAME="${{ steps.parse.outputs.container }}"
+          VER="${{ steps.parse.outputs.version }}"
+          apptainer push "${NAME}.sif" "oras://ghcr.io/${OWNER}/${NAME}-sif:${VER}"
+          apptainer push "${NAME}.sif" "oras://ghcr.io/${OWNER}/${NAME}-sif:latest"
+
+      - name: Disk after
+        if: always()
+        run: df -h /
 
       - name: Summary
         run: |
-          echo "Pushed \`${{ secrets.DOCKERHUB_USERNAME }}/${{ steps.parse.outputs.container }}:${{ steps.parse.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          NAME="${{ steps.parse.outputs.container }}"
+          VER="${{ steps.parse.outputs.version }}"
+          {
+            echo "### ${NAME} ${VER}"
+            echo ""
+            echo '```bash'
+            echo "apptainer pull oras://ghcr.io/${OWNER}/${NAME}-sif:${VER}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
