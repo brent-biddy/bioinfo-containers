@@ -7,24 +7,26 @@ Versioned images for the lab, on Docker Hub under `babiddy755`.
 | Name | For | Contains |
 |------|-----|----------|
 | `python_cpu` | every step that is not GPU work — object creation, annotation, centroids, reports | the analysis stack; no CUDA |
-| `python_gpu` | steps that cluster on a card | `python_cpu` + RAPIDS |
-| `cellpose_gpu` | segmentation — the oocyte repos, `xenium_tools` | `python_gpu` + torch + cellpose |
-| `python_spatial` | **frozen.** What every repo currently uses | the whole stack in one image |
+| `python_spatial` | **frozen.** What every repo currently uses, including all GPU work | the whole stack in one image |
 
-### Why three
+Two more are designed and live on the `gpu-images` branch: `python_gpu` (`python_cpu` +
+RAPIDS) and `cellpose_gpu` (`python_gpu` + torch + cellpose). They are not here yet because
+they raise questions this repo has not answered — whether a RAPIDS build fits a hosted runner,
+and whether RAPIDS can satisfy the pinned versions at all. Until then `python_spatial` covers
+every GPU step, unchanged.
+
+### Why split at all
 
 `python_spatial` carries RAPIDS, CUDA, torch and cellpose in one 11 GB image, so a scanpy bump
-rebuilds all of it and every repo pays for stacks it never imports. Splitting by what is
-actually used makes the image that changes most often small enough to rebuild in a couple of
-minutes — `python_cpu` is 6.4 GB built, 1.4 GB as a SIF.
+rebuilds all of it and every repo pays for stacks it never imports. Checked across the repos:
+`merfish_testis` and `xenium_nb` import rapids-singlecell; the oocyte repos and `xenium_tools`
+import cellpose; nothing imports both, and nothing imports torch except through cellpose.
+`sammy_r21`, `oir-analysis-*` and `retina` need neither.
 
-No repo imports both `cellpose` and `rapids_singlecell`, but segmentation reads and writes the
-same objects the analysis steps do, so `cellpose_gpu` is layered on `python_gpu` rather than
-being a sibling of it.
+So the analysis stack is worth having on its own. `python_cpu` is 1.4 GB as a SIF against 11 GB,
+and rebuilds in minutes rather than being something you avoid touching.
 
-`python_spatial` is left exactly as it was and will be retired once the repos move to
-`python_gpu`. That is why the analysis stack is briefly written in two places: leaving a working
-image alone was worth more than removing the duplication early.
+`python_spatial` is left exactly as it was. Anything needing a GPU still uses it.
 
 ### What the images guarantee
 
@@ -45,20 +47,16 @@ environment variables to make one function, so each image sets:
 
 ```
 definitions/
-  python_cpu/      environment.yml   the shared base, and the CPU image's own env
-                   Dockerfile
-  python_gpu/      environment.yml   RAPIDS overlay only
-                   Dockerfile
-  cellpose_gpu/    environment.yml   torch + cellpose overlay
-                   Dockerfile
+  python_cpu/      environment.yml   the CPU image's env, and the base the GPU images extend
+                   Apptainer.def
   python_spatial/  frozen
 ```
 
 There is no `common/` directory: `python_cpu`'s environment file *is* the shared base, so there
 is nothing extra to name.
 
-The build context is `definitions/`, not an image's own directory, because every image needs
-`python_cpu/environment.yml` as well as its own overlay.
+`%files` paths resolve against the working directory — Apptainer has no build-context flag — so
+definitions use repo-root-relative paths and are built from the repository root.
 
 ## Releasing
 
@@ -76,22 +74,14 @@ the account password).
 Pull requests touching `definitions/` build `python_cpu` without pushing, and check that the
 image configures itself — the guarantees above are asserted rather than assumed.
 
-### Whether the GPU images build in CI is unknown
+### The GPU images are not here yet
 
-A hosted runner has roughly 21 GB free and `python_spatial` is 32 GB unpacked, so a RAPIDS build
-may not fit. There is deliberately no disk-cleanup step: that is worth learning from a real run
-rather than working around in advance.
+They are designed on the `gpu-images` branch. Two things are unknown: whether a RAPIDS build
+fits a hosted runner (~21 GB free, against an 11 GB image), and whether RAPIDS can satisfy the
+versions pinned in `python_cpu/environment.yml` at all — RAPIDS pins dask, which caps
+spatialdata. Both are worth answering with something already working to compare against.
 
-If a GPU tag fails, build and push it locally instead:
-
-```bash
-docker build -f definitions/python_gpu/Dockerfile -t python_gpu:local definitions
-docker tag python_gpu:local babiddy755/python_gpu:1.0.0
-docker push babiddy755/python_gpu:1.0.0
-```
-
-That is the trade the split was for: the image that changes often is automated, and the heavy
-one can stay a deliberate manual act.
+Until then `python_spatial` covers every GPU step, unchanged.
 
 ## Using an image
 
@@ -115,7 +105,7 @@ Nextflow takes the same URI directly:
 
 ```groovy
 process { container = 'oras://ghcr.io/brent-biddy/python_cpu-sif:1.0.0' }
-withLabel: 'gpu' { container = 'oras://ghcr.io/brent-biddy/python_gpu-sif:1.0.0' }
+withLabel: 'gpu' { container = 'docker://babiddy755/python_spatial:1.2.0' }
 ```
 
 This is the point of publishing SIFs rather than OCI images. With a `docker://` URI Nextflow

@@ -4,12 +4,9 @@ name: Build check
 # Each definition's %test runs against the finished SIF, which is where the image's guarantees
 # are asserted -- that it configures itself rather than expecting a caller to.
 #
-# python_cpu and python_gpu are handled identically -- same steps, no GPU-specific tooling.
-# Whether a RAPIDS build fits a hosted runner is not worked around in advance: it either passes
-# here or the failure says what it needs.
-#
-# cellpose_gpu is absent because it bootstraps from a published python_gpu SIF, so it cannot
-# build until one exists. It joins this matrix once one does.
+# python_cpu only. The GPU images are on the `gpu-images` branch: they raise larger questions
+# -- whether a RAPIDS build fits a hosted runner, and whether RAPIDS can satisfy the pinned
+# versions at all -- and there is no reason to answer those before something works end to end.
 
 on:
   pull_request:
@@ -28,11 +25,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
-      # Both run even if one fails: if the GPU build dies on disk we still want to know the CPU
-      # one is fine, and the other way round.
+      # Kept even with one entry: adding an image is then a one-word change, and a failure in
+      # one never hides a pass in another.
       fail-fast: false
       matrix:
-        image: [python_cpu, python_gpu]
+        image: [python_cpu]
 
     steps:
       - uses: actions/checkout@v4
