@@ -1,0 +1,27 @@
+# The segmentation overlay. Installed on top of the python_spatial image, which is itself
+# definitions/python_cpu/environment.yml plus the RAPIDS stack -- so a segmentation script has
+# everything an analysis script has, at the same versions, and can load data with spatialdata
+# or cluster with rapids-singlecell in the same workflow.
+#
+# Layered rather than a sibling because segmentation is not a separate world: the oocyte work
+# reads and writes the same objects the analysis steps do, and splitting them would mean
+# choosing between two images inside one workflow.
+#
+# torch lives here rather than in python_gpu because cellpose is its only consumer --
+# nothing else in any repo imports torch. Keeping it in this layer means the clustering image
+# does not carry a deep learning stack it never calls.
+#
+# Segmentation output depends on the exact cellpose version and its model weights, so this is
+# the file to pin hard. An analysis dependency moving should never change a mask.
+name: cellpose_gpu
+
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+
+dependencies:
+  - pytorch-gpu
+  - torchvision
+  - pip:
+    - cellpose

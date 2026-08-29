@@ -1,0 +1,58 @@
+name: Build check
+
+# Builds without pushing, so a broken definition is caught before anyone tags a release.
+#
+# Only python_cpu runs here. It builds in about two minutes and comfortably fits a hosted
+# runner, which is the point of the CPU/GPU split: the image that changes most often is the
+# one that is cheap to check. The GPU images are built on a release tag, where the longer run
+# and the disk reclamation are worth paying for.
+
+on:
+  pull_request:
+    paths:
+      - 'definitions/**'
+      - '.github/workflows/build.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'definitions/**'
+
+jobs:
+  python_cpu:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build python_cpu
+        uses: docker/build-push-action@v6
+        with:
+          context: definitions
+          file: definitions/python_cpu/Dockerfile
+          push: false
+          load: true
+          tags: python_cpu:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The Dockerfile already imports the stack at build time. This checks the things a
+      # pipeline depends on that an import cannot: that the image presents its own environment
+      # rather than expecting the caller to set it up.
+      - name: Check the image configures itself
+        run: |
+          docker run --rm python_cpu:ci bash -c '
+            set -e
+            [ -n "$JUPYTER_PATH" ] || { echo "JUPYTER_PATH unset"; exit 1; }
+            [ -n "$CONDA_PREFIX" ] || { echo "CONDA_PREFIX unset"; exit 1; }
+            case "$(which python)" in
+              /opt/conda/envs/python_cpu/bin/python) ;;
+              *) echo "python is $(which python), not the env"; exit 1 ;;
+            esac
+            # Only the image own kernelspecs should be discoverable, so a notebook that pins
+            # no kernel resolves here rather than to whatever the host happens to have.
+            jupyter kernelspec list 2>/dev/null | grep -q "/opt/conda/envs/python_cpu" \
+              || { echo "image kernelspec not found"; exit 1; }
+            echo "image configures itself: ok"
+          '

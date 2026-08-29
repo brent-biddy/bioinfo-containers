@@ -1,87 +1,128 @@
 # Team Containers
 
-Versioned Docker images for the lab. Build and push locally to Docker Hub.
+Versioned images for the lab, on Docker Hub under `babiddy755`.
 
-## Available containers
+## The images
 
-| Name | Description | Image |
-|------|-------------|-------|
-| `python_spatial` | Spatial omics — Python (squidpy, spatialdata, rapids-singlecell) | `babiddy755/python_spatial` |
+| Name | For | Contains |
+|------|-----|----------|
+| `python_cpu` | every step that is not GPU work — object creation, annotation, centroids, reports | the analysis stack; no CUDA |
+| `python_gpu` | steps that cluster on a card | `python_cpu` + RAPIDS |
+| `cellpose_gpu` | segmentation — the oocyte repos, `xenium_tools` | `python_gpu` + torch + cellpose |
+| `python_spatial` | **frozen.** What every repo currently uses | the whole stack in one image |
 
-## Using a container
+### Why three
 
-### Local (Docker)
+`python_spatial` carries RAPIDS, CUDA, torch and cellpose in one 11 GB image, so a scanpy bump
+rebuilds all of it and every repo pays for stacks it never imports. Splitting by what is
+actually used makes the image that changes most often small enough to rebuild in a couple of
+minutes — `python_cpu` is 6.4 GB built, 1.4 GB as a SIF.
 
-Build the image:
+No repo imports both `cellpose` and `rapids_singlecell`, but segmentation reads and writes the
+same objects the analysis steps do, so `cellpose_gpu` is layered on `python_gpu` rather than
+being a sibling of it.
 
-```bash
-docker build -t python_spatial:local definitions/python_spatial
-```
+`python_spatial` is left exactly as it was and will be retired once the repos move to
+`python_gpu`. That is why the analysis stack is briefly written in two places: leaving a working
+image alone was worth more than removing the duplication early.
 
-Run a script:
+### What the images guarantee
 
-```bash
-docker run --rm -v $PWD:/work python_spatial:local python my_script.py
-```
+An image presents a working environment on its own. A pipeline should never have to set
+environment variables to make one function, so each image sets:
 
-Convert to a local SIF for Apptainer testing:
+- `PATH` — its env first, so `python` is the env's interpreter
+- `CONDA_PREFIX` — cupy JIT-compiles kernels and finds the CUDA headers under it, and the
+  non-login shell a Nextflow `script:` block uses never sets it
+- `JUPYTER_PATH` — its own share directory. Apptainer bind-mounts `$HOME`, so kernelspecs under
+  `~/.local/share/jupyter/kernels` are visible inside the container and Quarto will resolve a
+  kernel from them, picking an unrelated project's environment and then *succeeding with the
+  wrong package versions*. Pointing `JUPYTER_PATH` inward makes the image's own kernels the only
+  discoverable ones, so a notebook needs no `jupyter:` pin and is portable between a conda env
+  and a container.
 
-```bash
-apptainer build definitions/python_spatial/python_spatial_local.sif docker-daemon://python_spatial:local
-```
-
-### HPC (Apptainer)
-
-Clone the repo, then pull the SIF next to the definition files:
-
-```bash
-git clone https://github.com/brent-biddy/bioinfo-containers.git
-cd bioinfo-containers
-export DOCKERHUB_OWNER=babiddy755
-./scripts/pull-sif.sh python_spatial 1.2.0
-```
-
-The SIF lands at `definitions/python_spatial/python_spatial_1.2.0.sif` and is gitignored.
-
-```bash
-apptainer exec definitions/python_spatial/python_spatial_1.2.0.sif python my_script.py
-```
-
-## Releasing a new version
-
-1. Update `environment.yml` with the new packages or versions.
-2. Build and test locally:
-
-```bash
-docker build -t python_spatial:local definitions/python_spatial
-```
-
-3. Tag, push to Docker Hub, and commit:
-
-```bash
-docker tag python_spatial:local babiddy755/python_spatial:1.2.0
-docker tag python_spatial:local babiddy755/python_spatial:latest
-docker push babiddy755/python_spatial:1.2.0
-docker push babiddy755/python_spatial:latest
-git add definitions/python_spatial/environment.yml
-git commit -m "..."
-git tag python_spatial/v1.2.0
-git push origin main python_spatial/v1.2.0
-```
-
-First time only — authenticate with Docker Hub:
-
-```bash
-docker login -u babiddy755
-```
-
-## Adding a new container
+## Layout
 
 ```
 definitions/
-  my-container/
-    Dockerfile
-    environment.yml
+  python_cpu/      environment.yml   the shared base, and the CPU image's own env
+                   Dockerfile
+  python_gpu/      environment.yml   RAPIDS overlay only
+                   Dockerfile
+  cellpose_gpu/    environment.yml   torch + cellpose overlay
+                   Dockerfile
+  python_spatial/  frozen
 ```
 
-Build locally, push to Docker Hub, then commit and tag.
+There is no `common/` directory: `python_cpu`'s environment file *is* the shared base, so there
+is nothing extra to name.
+
+The build context is `definitions/`, not an image's own directory, because every image needs
+`python_cpu/environment.yml` as well as its own overlay.
+
+## Releasing
+
+Tag `<container>/vX.Y.Z` and push it. CI builds that definition and pushes `:X.Y.Z` and
+`:latest` to Docker Hub.
+
+```bash
+git tag python_cpu/v1.0.0
+git push origin python_cpu/v1.0.0
+```
+
+Needs two repository secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (an access token, not
+the account password).
+
+Pull requests touching `definitions/` build `python_cpu` without pushing, and check that the
+image configures itself — the guarantees above are asserted rather than assumed.
+
+### Whether the GPU images build in CI is unknown
+
+A hosted runner has roughly 21 GB free and `python_spatial` is 32 GB unpacked, so a RAPIDS build
+may not fit. There is deliberately no disk-cleanup step: that is worth learning from a real run
+rather than working around in advance.
+
+If a GPU tag fails, build and push it locally instead:
+
+```bash
+docker build -f definitions/python_gpu/Dockerfile -t python_gpu:local definitions
+docker tag python_gpu:local babiddy755/python_gpu:1.0.0
+docker push babiddy755/python_gpu:1.0.0
+```
+
+That is the trade the split was for: the image that changes often is automated, and the heavy
+one can stay a deliberate manual act.
+
+## Using an image
+
+### Locally
+
+```bash
+docker build -f definitions/python_cpu/Dockerfile -t python_cpu:local definitions
+docker run --rm -v "$PWD:/work" python_cpu:local python my_script.py
+```
+
+### HPC and Nextflow
+
+```bash
+apptainer build python_cpu.sif docker://babiddy755/python_cpu:1.0.0
+apptainer exec python_cpu.sif python my_script.py
+```
+
+A pipeline selects between images with a process label, so a step declares what it needs and
+each site says how that is satisfied:
+
+```groovy
+process { container = 'babiddy755/python_cpu:1.0.0' }
+withLabel: 'gpu' { container = 'babiddy755/python_gpu:1.0.0' }
+```
+
+## Adding an image
+
+```
+definitions/my_image/
+  environment.yml     an overlay on python_cpu's, or a standalone env
+  Dockerfile
+```
+
+Nothing else changes: the release workflow takes the image name from the tag.

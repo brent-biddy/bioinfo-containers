@@ -1,0 +1,66 @@
+name: Release
+
+# Trigger: push a tag of the form  <container>/vX.Y.Z
+#
+#   git tag python_cpu/v1.0.0 && git push origin python_cpu/v1.0.0
+#
+# The tag names which definition to build, so one workflow serves every image and adding a
+# new one needs no change here.
+#
+# Requires two repository secrets: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker Hub
+# access token, not the account password).
+
+on:
+  push:
+    tags:
+      - '*/v[0-9]*'
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${{ github.ref_name }}"        # python_cpu/v1.0.0
+          CONTAINER="${TAG%/v*}"              # python_cpu
+          VERSION="${TAG#*/v}"                # 1.0.0
+          if [ ! -f "definitions/${CONTAINER}/Dockerfile" ]; then
+            echo "::error::No definitions/${CONTAINER}/Dockerfile — tag names an image that does not exist"
+            exit 1
+          fi
+          echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"     >> "$GITHUB_OUTPUT"
+
+      # No disk-space cleanup here on purpose. A hosted runner has roughly 21 GB free and the
+      # GPU images may not fit, but that is worth finding out from a real run rather than
+      # working around in advance. If a GPU tag fails on disk, build and push it locally --
+      # see the README. Only official actions/ and docker/ actions are used.
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Context is definitions/, not the image's own directory, because every image is built
+      # from definitions/python_cpu/environment.yml as well as its own overlay.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: definitions
+          file: definitions/${{ steps.parse.outputs.container }}/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ steps.parse.outputs.container }}:${{ steps.parse.outputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ steps.parse.outputs.container }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "Pushed \`${{ secrets.DOCKERHUB_USERNAME }}/${{ steps.parse.outputs.container }}:${{ steps.parse.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"

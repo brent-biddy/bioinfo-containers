@@ -1,0 +1,62 @@
+# The CPU image's environment, and the shared base every other image is built from.
+#
+# python_gpu adds definitions/python_gpu/environment.yml on top of this, and cellpose_gpu is
+# built on python_gpu. So a package cannot be at a different version in the step that clusters
+# on a card and the step that annotates on a CPU. Nothing in this file may require CUDA.
+#
+# python_spatial is not built from this file. It is frozen at 1.2.0 and will be retired once
+# the repos move to python_gpu; leaving it alone is why the analysis stack is briefly written
+# in two places.
+name: python_cpu
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - pip
+
+  # Notebook execution. Quarto itself is installed from a .deb in the Dockerfile, but it
+  # runs notebooks through this machinery.
+  - ipykernel
+  - nbclient
+  - nbformat
+  - papermill
+  - pyyaml
+
+  # Core numerics
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn>=1.6,<1.7
+  - matplotlib
+
+  # Single cell and spatial
+  - anndata
+  - scanpy
+  - squidpy
+  - spatialdata
+  - spatialdata-io
+  - spatialdata-plot
+  - python-igraph
+  - leidenalg
+  - session-info
+
+  # Geometry, imaging: segmentation boundaries and label rasters
+  - geopandas
+  - shapely
+  - scikit-image
+  - h5py
+  - tifffile
+
+  - pip:
+    - scikit-learn>=1.6,<1.7
+    - seaborn
+    - plotly
+    - gseapy
+    - opencv-python-headless
+    - matplotlib-scalebar
+    - matplotlib-venn
+    - session-info2
+    - dask-image
+    - omnipath
