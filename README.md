@@ -7,7 +7,7 @@ Versioned images for the lab, on Docker Hub under `babiddy755`.
 | Name | For | Contains |
 |------|-----|----------|
 | `python_cpu` | every step that is not GPU work — object creation, annotation, centroids, reports | the analysis stack; no CUDA |
-| `python_gpu` | steps that cluster on a card | `python_cpu`'s environment + RAPIDS; **8.1 GB** |
+| `python_gpu` | steps that cluster on a card | `python_cpu`'s environment + RAPIDS; **7.9 GB** |
 | `python_spatial` | **frozen.** What the repos used before these two | the whole stack in one image |
 
 **Two, not three.** An earlier plan added `cellpose_gpu` for the segmentation work, on the
@@ -50,8 +50,10 @@ the whole blob without complaint — the throttle is on getting permission to st
 transfer.
 
 So image size here is a correctness property, not a nicety. The image was 11.5 GB and is now
-**8.1 GB**, by asking for the CPU build of torch — see `definitions/python_cpu/environment.yml`.
-There is no headroom to spend casually: adding cellpose and a CUDA torch would put it back over.
+**7.9 GB**, by asking for the CPU build of torch — see `definitions/python_cpu/environment.yml`,
+where the build string is pinned rather than the `pytorch-cpu` metapackage, which selects an
+MKL-linked variant and costs a further gigabyte. There is no headroom to spend casually: adding
+cellpose and a CUDA torch would put it back over.
 
 Two levers that look promising and are not:
 

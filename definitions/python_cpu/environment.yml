@@ -44,7 +44,11 @@ dependencies:
   # -- which pulls in cuDNN and MAGMA, 3.3 GB that nothing there references either. Pinning it
   # here rather than in the GPU overlay is deliberate: `micromamba install` swaps the package
   # it is asked about and leaves the orphans behind, so a late fix strands them in the image.
-  - pytorch-cpu=2.13.0
+  #
+  # The build string, not the `pytorch-cpu` metapackage: that one selects the cpu_mkl variant
+  # and brings 0.96 GB of Intel MKL with it, to accelerate CPU BLAS for a torch nothing calls.
+  # cpu_generic is what this image resolved to before anything was pinned.
+  - pytorch=2.13.0=cpu_generic*
   - scanpy=1.12.1
   - squidpy=1.8.2
   - spatialdata=0.7.3
