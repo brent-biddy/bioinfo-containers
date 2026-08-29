@@ -76,16 +76,26 @@ That fits this data as well as size does: `python_gpu-sif` is throttled and `pyt
 not, both under one account, and a brand-new blob in the throttled package is refused while a
 brand-new blob in the healthy one is not. Which points at the package rather than the bytes.
 
-**A confound worth stating: these measurements are not clean.** Far more has been pulled from
-`python_gpu-sif` than from `python_cpu-sif` — including a complete 11.5 GB download and several
-failed pulls — so some of the throttling may be self-inflicted by testing it. Ten minutes of
-quiet did not clear it; a longer window has not been tried. The honest test is a cold pull from
-a machine that has not been hammering the package, which is what OSCER will be.
+**Confirmed on OSCER, from a machine that had never pulled either package.** One had been doing
+all the testing, so self-inflicted throttling was a live possibility. It is ruled out — both
+pulls run within a minute of each other, same host, same network, same account:
+
+```
+apptainer pull oras://...python_cpu-sif:1.0.1   1.3 GiB   ok, 50s at 53 MiB/s
+apptainer pull oras://...python_gpu-sif:1.0.1   7.9 GB    TOOMANYREQUESTS in 0.79s
+```
+
+So it is not the client, not the IP, not the cluster's network, and not testing load. It is the
+artifact, server-side, on first contact.
+
+**The practical consequence: `container = 'oras://...python_gpu-sif'` does not work on OSCER.**
+Not intermittently — every time, in under a second, before anything is downloaded. Any workflow
+that relies on Nextflow autopulling this image will fail to start. Getting it onto a cluster
+needs either a client that retries the redirect, or the SIF pre-staged somewhere durable.
 
 So: the image is smaller because carrying a CUDA deep learning stack nothing imports was waste,
 not because a size threshold was crossed. **Do not treat any particular size as safe**, and do
-not expect shrinking an image to fix a pull. The reliable way to get this image onto a machine
-is a client that retries the redirect.
+not expect shrinking an image to fix a pull.
 
 Two levers for size that look promising and are not:
 
