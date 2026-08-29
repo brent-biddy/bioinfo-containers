@@ -39,23 +39,55 @@ the problem impossible rather than detectable.
 
 `python_spatial` is left exactly as it was, and will be retired once the repos move over.
 
-### Keep `python_gpu` under 10 GB
+### `apptainer pull` of `python_gpu` is unreliable, and shrinking it did not fix that
 
-**GHCR has a 10 GB limit per layer, and an ORAS SIF is a single layer.** Over it, pulls are
-unreliable rather than refused: `ghcr.io` throttles the request for the blob's redirect with a
-sub-second `retry-after`, and Apptainer's ORAS client does not retry, so `apptainer pull` dies on
-the first `429`. Measured at 11.5 GB it took 31 attempts to get a redirect at all, while the
-1.4 GB CPU blob returned one first try, every try. Once a signed URL is in hand the CDN serves
-the whole blob without complaint — the throttle is on getting permission to start, not on the
-transfer.
+**`ghcr.io` throttles the request for this blob's redirect**, with a sub-second `retry-after`.
+Apptainer's ORAS client does not retry, so `apptainer pull` dies on the first `429` — in about
+two seconds, with `TOOMANYREQUESTS`. `pullTimeout` is irrelevant: nothing times out, the first
+request is refused.
 
-So image size here is a correctness property, not a nicety. The image was 11.5 GB and is now
-**7.9 GB**, by asking for the CPU build of torch — see `definitions/python_cpu/environment.yml`,
-where the build string is pinned rather than the `pytorch-cpu` metapackage, which selects an
-MKL-linked variant and costs a further gigabyte. There is no headroom to spend casually: adding
-cellpose and a CUDA torch would put it back over.
+The throttle is on getting *permission to start*, not on the transfer. Once a signed CDN URL is
+in hand, 20 ranged requests across the blob returned `206` every time, no token needed. That is
+why `scripts/pull-sif.sh` and the fetch-and-resume workaround succeed where `apptainer pull`
+fails: they retry until the redirect comes.
 
-Two levers that look promising and are not:
+**A 10 GB per-layer limit was assumed to be the cause. It is not.** GHCR does document 10 GB per
+layer, and an ORAS SIF is one layer, so shrinking the image below it looked like the fix. It was
+not — measured within one hour, three trials each, counting attempts to obtain the redirect:
+
+| blob | size | attempts |
+|---|---|---|
+| `python_cpu-sif:1.0.0` | 1.44 GB | 1, 1, 1 |
+| `python_cpu-sif:1.0.1`, freshly published | 1.44 GB | 1, 1, 1 |
+| `python_gpu-sif:1.0.0` | 11.50 GB | 32, 21, 3 |
+| `python_gpu-sif:1.0.1` | **7.93 GB** | 38, 46, 4 |
+
+7.93 GB is two gigabytes inside the documented limit and throttles indistinguishably from 11.50.
+A real `apptainer pull` of it still fails, in about two seconds. The freshly published CPU blob
+rules out recency.
+
+**The mechanism is not identified, and this section deliberately stops short of naming one.**
+Two things argue against the documented request-rate limiter. GHCR's rate-limit errors carry an
+`allowed: N/minute` clause (`retry-after: 3.2ms, allowed: 2000/minute`); ours carries none, just
+`retry-after: 45.467376ms`. And the widely reported case of this error — `ghcr.io/aquasecurity`,
+community discussion #139074 — is scoped to a package namespace and independent of blob size.
+
+That fits this data as well as size does: `python_gpu-sif` is throttled and `python_cpu-sif` is
+not, both under one account, and a brand-new blob in the throttled package is refused while a
+brand-new blob in the healthy one is not. Which points at the package rather than the bytes.
+
+**A confound worth stating: these measurements are not clean.** Far more has been pulled from
+`python_gpu-sif` than from `python_cpu-sif` — including a complete 11.5 GB download and several
+failed pulls — so some of the throttling may be self-inflicted by testing it. Ten minutes of
+quiet did not clear it; a longer window has not been tried. The honest test is a cold pull from
+a machine that has not been hammering the package, which is what OSCER will be.
+
+So: the image is smaller because carrying a CUDA deep learning stack nothing imports was waste,
+not because a size threshold was crossed. **Do not treat any particular size as safe**, and do
+not expect shrinking an image to fix a pull. The reliable way to get this image onto a machine
+is a client that retries the redirect.
+
+Two levers for size that look promising and are not:
 
 - **stripping static archives.** All `*.a` in the env total 0.15 GB across 94 files. Not a lever.
 - **limiting CUDA architectures.** RAPIDS ships seven (`sm_70` through `sm_120`), and the image
