@@ -104,18 +104,37 @@ docker run --rm -v "$PWD:/work" python_cpu:local python my_script.py
 
 ### HPC and Nextflow
 
+Pull a ready-made SIF -- no conversion:
+
 ```bash
-apptainer build python_cpu.sif docker://babiddy755/python_cpu:1.0.0
-apptainer exec python_cpu.sif python my_script.py
+apptainer pull oras://ghcr.io/brent-biddy/python_cpu-sif:1.0.0
+apptainer exec python_cpu-sif_1.0.0.sif python my_script.py
 ```
 
-A pipeline selects between images with a process label, so a step declares what it needs and
-each site says how that is satisfied:
+Nextflow takes the same URI directly:
 
 ```groovy
-process { container = 'babiddy755/python_cpu:1.0.0' }
-withLabel: 'gpu' { container = 'babiddy755/python_gpu:1.0.0' }
+process { container = 'oras://ghcr.io/brent-biddy/python_cpu-sif:1.0.0' }
+withLabel: 'gpu' { container = 'oras://ghcr.io/brent-biddy/python_gpu-sif:1.0.0' }
 ```
+
+This is the point of publishing SIFs rather than OCI images. With a `docker://` URI Nextflow
+pulls the image and converts it to SIF inside the job, which exceeds the 20 minute
+`pullTimeout` default on a RAPIDS-sized image and is paid again whenever the cache is cleared.
+An `oras://` artifact is already a SIF: Nextflow downloads it into `cacheDir` once and runs it.
+
+Two requirements for this to work:
+
+- **Keep `ociAutoPull` and `ociMode` off** (they are off by default). Both make the runtime
+  treat images as OCI and convert them, which is exactly what the SIF avoids.
+- **Make the GHCR package public**, so the cluster needs no registry credentials.
+
+The single-layer point matters: `oras://` against a multi-layer Docker image fails with
+`ORAS SIF image should have a single layer, found N`. `apptainer push` produces a genuine
+single-layer ORAS artifact, which is the supported case.
+
+A pipeline selects between images with a process label, so a step declares what it needs and
+each site says how that is satisfied.
 
 ## Adding an image
 

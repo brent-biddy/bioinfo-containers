@@ -19,6 +19,11 @@ name: Release
 # Pull one with:
 #
 #   apptainer pull oras://ghcr.io/brent-biddy/python_cpu-sif:1.0.0
+#
+# Nextflow takes the same URI as process.container and downloads it into cacheDir without
+# converting anything -- this is what Wave does for its own Singularity images. Keep
+# apptainer.ociAutoPull and ociMode off (they are off by default): both make the runtime treat
+# the image as OCI and convert it, which is precisely what publishing a SIF avoids.
 
 on:
   push:
