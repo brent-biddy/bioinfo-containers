@@ -7,26 +7,36 @@ Versioned images for the lab, on Docker Hub under `babiddy755`.
 | Name | For | Contains |
 |------|-----|----------|
 | `python_cpu` | every step that is not GPU work — object creation, annotation, centroids, reports | the analysis stack; no CUDA |
-| `python_spatial` | **frozen.** What every repo currently uses, including all GPU work | the whole stack in one image |
+| `python_gpu` | steps that cluster on a card | `python_cpu`'s environment + RAPIDS |
+| `python_spatial` | **frozen.** What the repos used before these two | the whole stack in one image |
 
-Two more are designed and live on the `gpu-images` branch: `python_gpu` (`python_cpu` +
-RAPIDS) and `cellpose_gpu` (`python_gpu` + torch + cellpose). They are not here yet because
-they raise questions this repo has not answered — whether a RAPIDS build fits a hosted runner,
-and whether RAPIDS can satisfy the pinned versions at all. Until then `python_spatial` covers
-every GPU step, unchanged.
+**Two, not three.** An earlier plan added `cellpose_gpu` for the segmentation work, on the
+grounds that cellpose pins hard while analysis moves, and that nothing imports both cellpose and
+rapids-singlecell. That may still be right, but it is speculative until the oocyte repos
+actually migrate — and splitting has a real cost, below. A definition for it exists on the
+`gpu-images` branch if it turns out to be wanted.
 
-### Why split at all
+### Why split, and what it costs
 
-`python_spatial` carries RAPIDS, CUDA, torch and cellpose in one 11 GB image, so a scanpy bump
-rebuilds all of it and every repo pays for stacks it never imports. Checked across the repos:
-`merfish_testis` and `xenium_nb` import rapids-singlecell; the oocyte repos and `xenium_tools`
-import cellpose; nothing imports both, and nothing imports torch except through cellpose.
-`sammy_r21`, `oir-analysis-*` and `retina` need neither.
+`python_spatial` carries RAPIDS, CUDA, torch and cellpose in one 11 GB image. Checked across the
+repos: `merfish_testis` and `xenium_nb` import rapids-singlecell; the oocyte repos and
+`xenium_tools` import cellpose; nothing imports both, and nothing imports torch except through
+cellpose. `sammy_r21`, `oir-analysis-*` and `retina` need neither — handing them an 11 GB image
+for scanpy work is the thing this fixes. `python_cpu` is **1.4 GB** as a SIF, and builds in four
+and a half minutes against twelve.
 
-So the analysis stack is worth having on its own. `python_cpu` is 1.4 GB as a SIF against 11 GB,
-and rebuilds in minutes rather than being something you avoid touching.
+Two arguments that originally justified splitting have since weakened, and it is worth being
+honest about that. "Nobody touches an 11 GB image because rebuilding it is painful" — CI now
+does it unattended in twelve minutes. "Every CPU step pays for the GPU stack" — with an
+`oras://` SIF there is no conversion, just a download, once per version per shared cacheDir.
 
-`python_spatial` is left exactly as it was. Anything needing a GPU still uses it.
+What splitting costs is real and was paid here: **a shared spec is not a shared solve.** RAPIDS
+pins dask, which caps spatialdata, so the two images can silently carry different versions of
+the library that writes and reads the objects passed between steps. Both are pinned to
+`python_spatial`'s resolved versions to make that a build failure instead. One image would make
+the problem impossible rather than detectable.
+
+`python_spatial` is left exactly as it was, and will be retired once the repos move over.
 
 ### What the images guarantee
 
@@ -73,15 +83,6 @@ the account password).
 
 Pull requests touching `definitions/` build `python_cpu` without pushing, and check that the
 image configures itself — the guarantees above are asserted rather than assumed.
-
-### The GPU images are not here yet
-
-They are designed on the `gpu-images` branch. Two things are unknown: whether a RAPIDS build
-fits a hosted runner (~21 GB free, against an 11 GB image), and whether RAPIDS can satisfy the
-versions pinned in `python_cpu/environment.yml` at all — RAPIDS pins dask, which caps
-spatialdata. Both are worth answering with something already working to compare against.
-
-Until then `python_spatial` covers every GPU step, unchanged.
 
 ## Using an image
 

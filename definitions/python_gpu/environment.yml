@@ -1,0 +1,37 @@
+# The GPU overlay. Installed on top of definitions/python_cpu/environment.yml, which carries
+# the analysis stack -- so a package cannot be at a different version in the step that clusters
+# on a card and the step that annotates on a CPU. Only CUDA-specific packages belong here.
+#
+# Versions are taken from python_spatial 1.2.0, the image these steps currently run in, for the
+# same reason the base is: that set is known to work against the pipeline code, not merely to
+# install. Pinned to the patch, not the release series -- `cuml=26.04` would have let the whole
+# RAPIDS stack move underneath a rebuild.
+#
+# cupy and dask are pinned explicitly even though they arrive as dependencies. Both are the
+# reason this overlay constrains the base at all: dask is what caps spatialdata, and cupy is
+# what a rebuild silently changing would break at kernel-compile time rather than at import.
+#
+# torch and cellpose are deliberately absent: cellpose is torch's only consumer anywhere in the
+# repos, so they live in cellpose_gpu, which is built on this image. The clustering image does
+# not carry a deep learning stack it never calls.
+#
+# This replaces python_spatial, which is frozen and will be retired once the repos move over.
+name: python_gpu
+
+channels:
+  - rapidsai
+  - nvidia
+  - conda-forge
+
+dependencies:
+  - cuda-version=12.9
+  - cuml=26.04.00
+  - cuvs=26.04.00
+  - cugraph=26.04.00
+  - cupy=14.1.1
+  - dask=2026.1.1
+  - distributed=2026.1.1
+  - rapids-dask-dependency=26.04.00
+  - numba=0.64.0
+  - pip:
+    - rapids-singlecell-cu12==0.15.2

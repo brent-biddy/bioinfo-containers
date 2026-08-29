@@ -4,9 +4,12 @@ name: Build check
 # Each definition's %test runs against the finished SIF, which is where the image's guarantees
 # are asserted -- that it configures itself rather than expecting a caller to.
 #
-# python_cpu only. The GPU images are on the `gpu-images` branch: they raise larger questions
-# -- whether a RAPIDS build fits a hosted runner, and whether RAPIDS can satisfy the pinned
-# versions at all -- and there is no reason to answer those before something works end to end.
+# python_cpu and python_gpu, handled identically -- same steps, no GPU-specific tooling. A
+# RAPIDS build was thought not to fit a hosted runner; it does, with room to spare (86 GB free,
+# 11 GB image, ~12 minutes).
+#
+# cellpose_gpu is absent because it bootstraps from a published python_gpu SIF, so it cannot
+# build until one exists. It joins this matrix once one does.
 
 on:
   pull_request:
@@ -17,6 +20,13 @@ on:
     branches: [main]
     paths:
       - 'definitions/**'
+
+# One run per branch. Without this, every push starts another full build and none of the older
+# ones stop -- three concurrent twelve-minute RAPIDS builds, competing for runners, all but the
+# last of them answering a question nobody is asking any more.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   APPTAINER_VERSION: 1.3.6
@@ -29,7 +39,7 @@ jobs:
       # one never hides a pass in another.
       fail-fast: false
       matrix:
-        image: [python_cpu]
+        image: [python_cpu, python_gpu]
 
     steps:
       - uses: actions/checkout@v4
