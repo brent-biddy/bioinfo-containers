@@ -7,7 +7,7 @@ Versioned images for the lab, on Docker Hub under `babiddy755`.
 | Name | For | Contains |
 |------|-----|----------|
 | `python_cpu` | every step that is not GPU work — object creation, annotation, centroids, reports | the analysis stack; no CUDA |
-| `python_gpu` | steps that cluster on a card | `python_cpu`'s environment + RAPIDS |
+| `python_gpu` | steps that cluster on a card | `python_cpu`'s environment + RAPIDS; **7.9 GB** |
 | `python_spatial` | **frozen.** What the repos used before these two | the whole stack in one image |
 
 **Two, not three.** An earlier plan added `cellpose_gpu` for the segmentation work, on the
@@ -21,7 +21,8 @@ actually migrate — and splitting has a real cost, below. A definition for it e
 `python_spatial` carries RAPIDS, CUDA, torch and cellpose in one 11 GB image. Checked across the
 repos: `merfish_testis` and `xenium_nb` import rapids-singlecell; the oocyte repos and
 `xenium_tools` import cellpose; nothing imports both, and nothing imports torch except through
-cellpose. `sammy_r21`, `oir-analysis-*` and `retina` need neither — handing them an 11 GB image
+cellpose — though `spatialdata` depends on torch regardless, which is why both images carry the
+CPU build. `sammy_r21`, `oir-analysis-*` and `retina` need neither — handing them an 11 GB image
 for scanpy work is the thing this fixes. `python_cpu` is **1.4 GB** as a SIF, and builds in four
 and a half minutes against twelve.
 
@@ -37,6 +38,30 @@ the library that writes and reads the objects passed between steps. Both are pin
 the problem impossible rather than detectable.
 
 `python_spatial` is left exactly as it was, and will be retired once the repos move over.
+
+### Keep `python_gpu` under 10 GB
+
+**GHCR has a 10 GB limit per layer, and an ORAS SIF is a single layer.** Over it, pulls are
+unreliable rather than refused: `ghcr.io` throttles the request for the blob's redirect with a
+sub-second `retry-after`, and Apptainer's ORAS client does not retry, so `apptainer pull` dies on
+the first `429`. Measured at 11.5 GB it took 31 attempts to get a redirect at all, while the
+1.4 GB CPU blob returned one first try, every try. Once a signed URL is in hand the CDN serves
+the whole blob without complaint — the throttle is on getting permission to start, not on the
+transfer.
+
+So image size here is a correctness property, not a nicety. The image was 11.5 GB and is now
+**7.9 GB**, by asking for the CPU build of torch — see `definitions/python_cpu/environment.yml`,
+where the build string is pinned rather than the `pytorch-cpu` metapackage, which selects an
+MKL-linked variant and costs a further gigabyte. There is no headroom to spend casually: adding
+cellpose and a CUDA torch would put it back over.
+
+Two levers that look promising and are not:
+
+- **stripping static archives.** All `*.a` in the env total 0.15 GB across 94 files. Not a lever.
+- **limiting CUDA architectures.** RAPIDS ships seven (`sm_70` through `sm_120`), and the image
+  must serve OSCER's H100 and L40S cards as well as a Blackwell laptop, so at most three could
+  go. They are prebuilt binaries, `nvprune` refuses shared libraries (*"not relocatable"*), and
+  honouring `CMAKE_CUDA_ARCHITECTURES` would mean building RAPIDS from source.
 
 ### What the images guarantee
 
