@@ -127,7 +127,11 @@ Two requirements for this to work:
 
 - **Keep `ociAutoPull` and `ociMode` off** (they are off by default). Both make the runtime
   treat images as OCI and convert them, which is exactly what the SIF avoids.
-- **Make the GHCR package public**, so the cluster needs no registry credentials.
+- **The GHCR packages are public**, so the cluster needs no registry credentials. This
+  repository is public, and a package published from it with `GITHUB_TOKEN` inherits that —
+  worth confirming on the first release, since a private package would mean placing a token on
+  OSCER and rotating it. If one does come out private: **Profile → Packages → `<image>-sif` →
+  Package settings → Change visibility.**
 
 The single-layer point matters: `oras://` against a multi-layer Docker image fails with
 `ORAS SIF image should have a single layer, found N`. `apptainer push` produces a genuine
