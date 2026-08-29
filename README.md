@@ -97,6 +97,23 @@ So: the image is smaller because carrying a CUDA deep learning stack nothing imp
 not because a size threshold was crossed. **Do not treat any particular size as safe**, and do
 not expect shrinking an image to fix a pull.
 
+Two further measurements narrow what this is. It is **per-blob, not per-package**: in the same
+package, same token, same seconds, the 2-byte config blob returns `307` ten times out of ten
+while the 7.93 GB layer returns `429` nine times out of ten. And **authentication makes no
+difference** — an anonymous registry token and one minted from GitHub credentials both give
+9/10 `429`, which is why `apptainer registry login` never helped. The `307` itself points at
+Azure Blob Storage with a SAS token, so a blob GET is GitHub *minting a signed URL* rather than
+serving bytes; admission control on minting those for expensive blobs would fit every
+observation, though that is a hypothesis and not confirmed.
+
+**Candidate fix: Quay.io.** Red Hat states unlimited storage and serving for public repositories,
+and that it does not restrict anonymous pulls — rate limiting only at tens of requests per second
+per IP, explicitly not pull-rate limiting for images. That is the opposite shape to a per-blob
+refusal on first contact. Untested here: GHCR's documented limits did not describe this failure
+either, so this stays a candidate until the real artifact is pushed there and pulled from OSCER.
+The cost is a CI robot credential, and with it the property that the only secret is
+`GITHUB_TOKEN`.
+
 Two levers for size that look promising and are not:
 
 - **stripping static archives.** All `*.a` in the env total 0.15 GB across 94 files. Not a lever.
