@@ -21,6 +21,13 @@ on:
     paths:
       - 'definitions/**'
 
+# One run per branch. Without this, every push starts another full build and none of the older
+# ones stop -- three concurrent twelve-minute RAPIDS builds, competing for runners, all but the
+# last of them answering a question nobody is asking any more.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   APPTAINER_VERSION: 1.3.6
 
