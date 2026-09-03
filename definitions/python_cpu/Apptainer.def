@@ -43,7 +43,7 @@ From: mambaorg/micromamba:1.5.10-jammy
         --name python_cpu --display-name "Python (python_cpu)"
     micromamba clean --all --yes
 
-    mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache
+    mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache /tmp/jupyter-data /tmp/ipython
 
 %environment
     # The image presents a working environment on its own; a pipeline should never have to set
@@ -62,6 +62,13 @@ From: mambaorg/micromamba:1.5.10-jammy
     export MPLCONFIGDIR=/tmp/matplotlib
     export NUMBA_CACHE_DIR=/tmp/numba-cache
     export XDG_CACHE_HOME=/tmp/.cache
+    # jupyter_core's data_dir default is ~/.local/share/jupyter, and it mkdir -p's that path
+    # just to evaluate the default -- even for a read-only `jupyter kernelspec list` -- so
+    # --no-home (a read-only $HOME) crashes it before JUPYTER_PATH is ever searched.
+    export JUPYTER_DATA_DIR=/tmp/jupyter-data
+    # IPython's own config dir defaults under $HOME too; same fix, quieter failure (a warning,
+    # not a crash), but still not something --no-home should leave to chance.
+    export IPYTHONDIR=/tmp/ipython
     export PYTHONUNBUFFERED=1
     export SCIPY_ARRAY_API=1
 
