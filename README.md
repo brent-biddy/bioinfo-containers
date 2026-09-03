@@ -114,6 +114,16 @@ either, so this stays a candidate until the real artifact is pushed there and pu
 The cost is a CI robot credential, and with it the property that the only secret is
 `GITHUB_TOKEN`.
 
+**Retested 2026-09-03 — clean on both a fresh network and OSCER itself.** The full 7.93 GB
+`python_gpu-sif:1.0.1` pulled without a single retry from an unrelated machine on an unrelated
+network (2m58s, 48.8 MiB/s), then from OSCER itself (4m2s, digest verified, no `TOOMANYREQUESTS`
+at all). The earlier failure was measured as "server-side, on first contact" and reproduced
+reliably across days of testing; it did not reproduce here on the same artifact, same registry,
+same client. That rules out nothing about *why* it happened, but it does mean it was not a
+permanent property of this artifact — something transient on GHCR/Azure's side, not the account,
+the client, or OSCER's network. Quay.io stays recorded as a candidate but is no longer needed to
+unblock anything: `container = 'oras://...python_gpu-sif'` works on OSCER as of this date.
+
 Two levers for size that look promising and are not:
 
 - **stripping static archives.** All `*.a` in the env total 0.15 GB across 94 files. Not a lever.
