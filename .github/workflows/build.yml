@@ -4,12 +4,10 @@ name: Build check
 # Each definition's %test runs against the finished SIF, which is where the image's guarantees
 # are asserted -- that it configures itself rather than expecting a caller to.
 #
-# python_cpu and python_gpu, handled identically -- same steps, no GPU-specific tooling. A
-# RAPIDS build was thought not to fit a hosted runner; it does, with room to spare (86 GB free,
-# 11 GB image, ~12 minutes).
-#
-# cellpose_gpu is absent because it bootstraps from a published python_gpu SIF, so it cannot
-# build until one exists. It joins this matrix once one does.
+# All three handled identically -- same steps, no GPU-specific tooling. A RAPIDS build was
+# thought not to fit a hosted runner; it does, with room to spare (86 GB free, 11 GB image,
+# ~12 minutes). cellpose_gpu bootstraps from a published python_cpu SIF, so it needs no such
+# room and no GPU on the runner -- CUDA package resolution works from CONDA_OVERRIDE_CUDA alone.
 
 on:
   pull_request:
@@ -39,7 +37,7 @@ jobs:
       # one never hides a pass in another.
       fail-fast: false
       matrix:
-        image: [python_cpu, python_gpu]
+        image: [python_cpu, python_gpu, cellpose_gpu]
 
     steps:
       - uses: actions/checkout@v4

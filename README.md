@@ -8,13 +8,14 @@ Versioned images for the lab, on Docker Hub under `babiddy755`.
 |------|-----|----------|
 | `python_cpu` | every step that is not GPU work — object creation, annotation, centroids, reports | the analysis stack; no CUDA |
 | `python_gpu` | steps that cluster on a card | `python_cpu`'s environment + RAPIDS; **7.9 GB** |
+| `cellpose_gpu` | segmentation with cellpose | `python_cpu`'s environment + torch + cellpose; **6.6 GB** |
 | `python_spatial` | **frozen.** What the repos used before these two | the whole stack in one image |
 
-**Two, not three.** An earlier plan added `cellpose_gpu` for the segmentation work, on the
-grounds that cellpose pins hard while analysis moves, and that nothing imports both cellpose and
-rapids-singlecell. That may still be right, but it is speculative until the oocyte repos
-actually migrate — and splitting has a real cost, below. A definition for it exists on the
-`gpu-images` branch if it turns out to be wanted.
+**`cellpose_gpu` bootstraps from `python_cpu`, not `python_gpu`**, even though a segmentation
+workflow that also clusters with rapids-singlecell in the same run would rather have both
+available at once. Measured, not assumed: the same cellpose+torch overlay on `python_gpu` landed
+at 11.02 GB, over GHCR's documented 10 GB per-layer limit; on `python_cpu` it landed at 6.59 GB.
+A too-large-to-publish image was never a real alternative to weigh that convenience against.
 
 ### Why split, and what it costs
 

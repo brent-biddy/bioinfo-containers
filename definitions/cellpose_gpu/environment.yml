@@ -1,0 +1,22 @@
+# The segmentation overlay. Installed on top of python_cpu, not python_gpu -- see
+# Apptainer.def for why: the same overlay on python_gpu measured over GHCR's 10 GB
+# per-layer limit.
+#
+# torch lives only here because cellpose is its only consumer -- nothing else in any repo
+# imports torch, so neither python_cpu nor python_gpu carries a deep learning stack it never
+# calls.
+#
+# Segmentation output depends on the exact cellpose version and its model weights, so this is
+# the file to pin hard. An analysis dependency moving should never change a mask.
+name: cellpose_gpu
+
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+
+dependencies:
+  - pytorch-gpu
+  - torchvision
+  - pip:
+    - cellpose
