@@ -65,11 +65,6 @@ dependencies:
   - h5py=3.16.0
   - tifffile=2026.3.3
 
-  # spatialdata uses this to read MERSCOPE mosaic images with less memory than the dask_image fallback.
-  - rioxarray=0.23.0
-  - rasterio=1.5.1
-  - affine=3.0.1
-
   - pip:
     - seaborn==0.13.2
     - plotly==6.8.0
