@@ -92,6 +92,35 @@ Reference files split the same way. Small curated ones (the testis centroid CSVs
 committed. Anything atlas-sized belongs behind a URL — and if it is cited in a paper, Zenodo,
 because the DOI is the part that actually matters there.
 
+## A curated, read-only image library
+
+`apptainer.cacheDir` and `apptainer.libraryDir` are easy to conflate:
+
+- `cacheDir` — where Nextflow **stores** images it pulls. Read-write, pull once and reuse.
+- `libraryDir` — where Nextflow **looks** before pulling. Read-only; Nextflow never writes there.
+
+A shared `cacheDir` alone already gives "pull once, everyone reuses", and collapses duplicated
+per-repo caches — `merfish_testis` did exactly this for itself, pointing at `~/apptainer_cache`
+instead of `~/merfish_testis_work/apptainer_cache`, 2026-09-03.
+
+The nicer version, lab-wide: populate a directory with `cacheDir`, then switch the config to
+`libraryDir` pointing at the same path. Nextflow computes the same filename for both lookups, so
+the images are found without any renaming.
+
+**Verified 2026-08-28.** With `libraryDir` populated and `cacheDir` empty, a process using
+`docker://babiddy755/python_spatial:1.2.0` ran instantly and the cacheDir stayed empty — found,
+never pulled.
+
+What that buys over a shared `cacheDir` alone is read-only semantics: a curated set of versions
+that no run's own pull can silently overwrite or a race between concurrent jobs can corrupt.
+Considered and set aside for `merfish_testis`'s OSCER config the same day this was reconsidered
+(2026-09-03) — not worth the two-directories-to-keep-in-sync overhead while the GHCR pull
+throttle it would insure against was not currently reproducing. Worth revisiting lab-wide, or if
+that throttle recurs.
+
+Set both on a cluster if adopted — `libraryDir` for the curated set, `cacheDir` for anything not
+in it yet, so an unknown image still works.
+
 ## Prune sha-tagged artifacts
 
 Not currently an issue — nothing publishes per-commit artifacts yet. It becomes one if the
