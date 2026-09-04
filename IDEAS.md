@@ -5,12 +5,12 @@
 The build check builds every image on every PR. It could build only the ones a PR touched.
 
 The naive version is wrong: `python_cpu/environment.yml` is the shared base, so a change to it
-must rebuild `python_gpu` too, and `cellpose_gpu` bootstraps from `python_gpu`. The rule is
-"what changed, plus everything downstream":
+must rebuild both `python_gpu` and `cellpose_gpu`, which bootstrap from it independently -- not
+from each other. The rule is "what changed, plus everything downstream":
 
 ```
 python_cpu changed    -> python_cpu, python_gpu, cellpose_gpu
-python_gpu changed    -> python_gpu, cellpose_gpu
+python_gpu changed    -> python_gpu
 cellpose_gpu changed  -> cellpose_gpu
 ```
 
