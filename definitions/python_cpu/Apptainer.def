@@ -43,8 +43,6 @@ From: mambaorg/micromamba:1.5.10-jammy
         --name python_cpu --display-name "Python (python_cpu)"
     micromamba clean --all --yes
 
-    mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache /tmp/jupyter-data /tmp/ipython
-
 %environment
     # The image presents a working environment on its own; a pipeline should never have to set
     # variables to make it function.
@@ -73,11 +71,25 @@ From: mambaorg/micromamba:1.5.10-jammy
     export SCIPY_ARRAY_API=1
 
 %runscript
+    # These must not be created in %post: a %post mkdir is owned by the build's (unprivileged
+    # sandbox) uid, which collides with whatever uid actually runs the container -- on a
+    # shared host /tmp (the GH Actions runner's build-then-test split hit exactly this: root
+    # -owned dirs from %post left over from `apptainer build`, unwritable by the later
+    # non-root `apptainer test`). Creating them only here, at actual run time, means they are
+    # always owned by whoever is really running the container.
+    mkdir -p "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"
     exec /usr/bin/tini -- "$@"
 
 %test
+    # Without this, a command failing partway through (an import crash, a missing binary)
+    # falls through to the final `echo` below, which always succeeds -- so the test passes
+    # regardless of what actually broke.
+    set -e
     export PATH=/opt/conda/envs/python_cpu/bin:/opt/conda/bin:$PATH
     export JUPYTER_PATH=/opt/conda/envs/python_cpu/share/jupyter
+    # See %runscript: must not be pre-created in %post, or this is a no-op against a dir this
+    # (non-root) test process can't actually write into.
+    mkdir -p "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"
 
     python - <<'PY'
 import nbformat, papermill, yaml, session_info
