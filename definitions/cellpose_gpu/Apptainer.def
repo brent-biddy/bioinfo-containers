@@ -32,10 +32,20 @@ From: ghcr.io/brent-biddy/python_cpu-sif:1.0.2
     export CELLPOSE_LOCAL_MODELS_PATH=/tmp/cellpose-models
 
 %runscript
+    # %post's mkdir (python_cpu's, inherited via the oras bootstrap) only guarantees these
+    # exist in the build-time filesystem; a fresh container instance's /tmp is not
+    # guaranteed to carry that forward. This %runscript replaces the base image's own, so
+    # the guard has to be restated here rather than relied on from python_cpu.
+    mkdir -p "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR" "$CELLPOSE_LOCAL_MODELS_PATH"
     exec /usr/bin/tini -- "$@"
 
 %test
+    # Without this, a command failing partway through (an import crash, a missing binary)
+    # falls through to the final `echo` below, which always succeeds -- so the test passes
+    # regardless of what actually broke.
+    set -e
     export PATH=/opt/conda/envs/python_cpu/bin:/opt/conda/bin:$PATH
+    mkdir -p "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR" "$CELLPOSE_LOCAL_MODELS_PATH"
 
     python - <<'PY'
 import cellpose, torch
