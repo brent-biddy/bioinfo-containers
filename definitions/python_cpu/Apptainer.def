@@ -43,8 +43,6 @@ From: mambaorg/micromamba:1.5.10-jammy
         --name python_cpu --display-name "Python (python_cpu)"
     micromamba clean --all --yes
 
-    mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache /tmp/jupyter-data /tmp/ipython
-
 %environment
     # The image presents a working environment on its own; a pipeline should never have to set
     # variables to make it function.
@@ -73,8 +71,12 @@ From: mambaorg/micromamba:1.5.10-jammy
     export SCIPY_ARRAY_API=1
 
 %runscript
-    # %post's mkdir only guarantees these exist in the build-time filesystem; a fresh
-    # container instance's /tmp is not guaranteed to carry that forward.
+    # These must not be created in %post: a %post mkdir is owned by the build's (unprivileged
+    # sandbox) uid, which collides with whatever uid actually runs the container -- on a
+    # shared host /tmp (the GH Actions runner's build-then-test split hit exactly this: root
+    # -owned dirs from %post left over from `apptainer build`, unwritable by the later
+    # non-root `apptainer test`). Creating them only here, at actual run time, means they are
+    # always owned by whoever is really running the container.
     mkdir -p "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"
     exec /usr/bin/tini -- "$@"
 
@@ -85,24 +87,9 @@ From: mambaorg/micromamba:1.5.10-jammy
     set -e
     export PATH=/opt/conda/envs/python_cpu/bin:/opt/conda/bin:$PATH
     export JUPYTER_PATH=/opt/conda/envs/python_cpu/share/jupyter
-
-    # TEMPORARY DIAGNOSTIC -- checking whether /tmp/numba-cache et al. already exist,
-    # owned by root, before this (non-root) mkdir -p runs. Remove once answered.
-    echo "--- diagnostic: id ---"; id
-    echo "--- diagnostic: ls -la /tmp ---"; ls -la /tmp
-    for d in "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"; do
-        echo "--- diagnostic: stat $d ---"; stat "$d" 2>&1 || true
-    done
-
-    # %post's mkdir only guarantees these exist in the build-time filesystem; a fresh
-    # container instance's /tmp is not guaranteed to carry that forward.
+    # See %runscript: must not be pre-created in %post, or this is a no-op against a dir this
+    # (non-root) test process can't actually write into.
     mkdir -p "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"
-
-    echo "--- diagnostic: stat after mkdir -p ---"
-    for d in "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"; do
-        stat "$d"
-        touch "$d/write-test" && echo "$d: writable" && rm -f "$d/write-test" || echo "$d: NOT WRITABLE"
-    done
 
     python - <<'PY'
 import nbformat, papermill, yaml, session_info

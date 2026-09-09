@@ -47,9 +47,6 @@ From: mambaorg/micromamba:1.5.10-jammy-cuda-12.5.1
         --name python_gpu --display-name "Python (python_gpu)"
     micromamba clean --all --yes
 
-    mkdir -p /tmp/matplotlib /tmp/numba-cache /tmp/.cache /tmp/cupy-cache /tmp/jupyter-data \
-        /tmp/ipython
-
 %environment
     # The image presents a working environment on its own; a pipeline should never have to set
     # variables to make it function.
@@ -83,8 +80,12 @@ From: mambaorg/micromamba:1.5.10-jammy-cuda-12.5.1
     export SCIPY_ARRAY_API=1
 
 %runscript
-    # %post's mkdir only guarantees these exist in the build-time filesystem; a fresh
-    # container instance's /tmp is not guaranteed to carry that forward.
+    # These must not be created in %post: a %post mkdir is owned by the build's (unprivileged
+    # sandbox) uid, which collides with whatever uid actually runs the container -- on a
+    # shared host /tmp (the GH Actions runner's build-then-test split hit exactly this: dirs
+    # left over from `apptainer build`'s %post, unwritable by the later, differently-privileged
+    # `apptainer test`). Creating them only here, at actual run time, means they are always
+    # owned by whoever is really running the container.
     mkdir -p "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$CUPY_CACHE_DIR" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"
     exec /usr/bin/tini -- "$@"
 
@@ -96,6 +97,8 @@ From: mambaorg/micromamba:1.5.10-jammy-cuda-12.5.1
     export PATH=/opt/conda/envs/python_gpu/bin:/opt/conda/bin:$PATH
     export JUPYTER_PATH=/opt/conda/envs/python_gpu/share/jupyter
     export CUPY_CACHE_DIR=/tmp/cupy-cache
+    # See %runscript: must not be pre-created in %post, or this is a no-op against a dir this
+    # (differently-privileged) test process can't actually write into.
     mkdir -p "$MPLCONFIGDIR" "$NUMBA_CACHE_DIR" "$XDG_CACHE_HOME" "$CUPY_CACHE_DIR" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"
 
     # Imports only. Whether a card is reachable is a property of the host, not the image, so it
