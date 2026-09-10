@@ -35,6 +35,10 @@ dependencies:
   - scipy=1.16.3
   - scikit-learn=1.6.1
   - matplotlib=3.11.0
+  # loess fit for scanpy's highly_variable_genes(..., flavor="seurat_v3"). Not in
+  # python_spatial 1.2.0's env either, so there was no known-working version to pin from;
+  # 0.5.2 is conda-forge's current release with a py312 build.
+  - scikit-misc=0.5.2
 
   # Single cell and spatial
   - anndata=0.12.19
