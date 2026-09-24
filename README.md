@@ -9,6 +9,7 @@ Versioned images for the lab, on Docker Hub under `babiddy755`.
 | `python_cpu` | every step that is not GPU work — object creation, annotation, centroids, reports | the analysis stack; no CUDA |
 | `python_gpu` | steps that cluster on a card | `python_cpu`'s environment + RAPIDS; **7.9 GB** |
 | `cellpose_gpu` | segmentation with cellpose | `python_cpu`'s environment + torch + cellpose; **6.6 GB** |
+| `r_seurat` | R/Seurat repos (e.g. `scrna-mouse-testis-chromatin-remodelers`) | Seurat, no CUDA; no Jupyter kernel needed — Quarto renders R through knitr directly |
 | `python_spatial` | **frozen.** What the repos used before these two | the whole stack in one image |
 
 **`cellpose_gpu` bootstraps from `python_cpu`, not `python_gpu`**, even though a segmentation

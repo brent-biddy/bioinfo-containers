@@ -1,0 +1,35 @@
+# The R/Seurat image: single-cell analysis in R, for repos that are R rather than
+# Python/scanpy (e.g. scrna-mouse-testis-chromatin-remodelers).
+#
+# Versions are the solver's own pick for this exact package set, not hand-picked -- an earlier
+# version of this file pinned r-ggplot2=3.5.1 against r-seurat=5.1.0 and it built cleanly, then
+# failed at import: "object 'is_ggplot' is not exported by 'namespace:ggplot2'". Seurat 5.1.0
+# needs a ggplot2 new enough to export it; 3.5.1 predates that. So: change these deliberately,
+# and prove the change by building and testing the image before publishing, same rule
+# python_cpu's environment.yml states for the same reason.
+#
+# Unlike python_cpu, there is no shared base another image builds from here -- nothing in the
+# lab's current repos runs Seurat on a GPU, so there is no r_seurat_gpu overlay to keep in
+# step. Add one the way python_gpu extends python_cpu if that ever changes.
+#
+# Expect a harmless startup warning: "'SeuratObject' was built with package 'Matrix' 1.7.5
+# but the current version is 1.7.6". SeuratObject's conda-forge build records the Matrix
+# version it was compiled against, which can trail the Matrix build the solver picks for this
+# exact package set -- verified against a real render (Seurat object creation + VlnPlot through
+# Quarto/knitr) that it doesn't affect output.
+name: r_seurat
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - r-base=4.5.3
+  - r-seurat=5.5.1
+  - r-optparse=1.8.2
+  - r-dplyr=1.2.1
+  - r-tidyr=1.3.2
+  - r-ggplot2=4.0.3
+  - r-reshape2=1.4.5
+  - r-matrix=1.7_6
+  - bioconductor-enhancedvolcano=1.28.2
