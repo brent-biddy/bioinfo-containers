@@ -1,0 +1,106 @@
+# The R/Seurat image: single-cell analysis in R, for repos that are R rather than
+# Python/scanpy.
+#
+# %files paths are relative to the working directory at build time -- Apptainer has no
+# build-context flag -- so build from the repository root:
+#
+#   apptainer build r_seurat.sif definitions/r_seurat/Apptainer.def
+#
+# Unlike python_cpu, R needs no Jupyter kernel registered: Quarto renders R chunks through the
+# knitr engine directly, calling Rscript from PATH -- there is no kernelspec discovery step for
+# a stray host config to shadow, so a .qmd needs no `jupyter:` pin either way.
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10-jammy
+
+%files
+    definitions/r_seurat/environment.yml /environment.yml
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        gdebi-core \
+        git \
+        procps \
+        tini
+    rm -rf /var/lib/apt/lists/*
+
+    QUARTO_VERSION=1.6.42
+    curl -fsSLo /tmp/quarto.deb \
+        "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb"
+    gdebi -n /tmp/quarto.deb
+    rm -f /tmp/quarto.deb
+
+    test -f /environment.yml
+    micromamba create -y -n r_seurat -f /environment.yml
+
+    # presto: not on CRAN, and conda's r-presto tops out at an r44 build (incompatible with
+    # this env's r-base=4.5.3) -- see environment.yml. Pinned to the v1.1.0 tag rather than
+    # master, and dependencies=FALSE because every one of presto's Imports is already in the
+    # conda env (see environment.yml's comment) -- letting remotes resolve them itself would
+    # mean CRAN source builds picking their own versions, silently drifting from what's pinned.
+    # micromamba run, not a direct path to Rscript: R shells out to `make`/the compilers for
+    # the compiled step below, and those are only on PATH once the env is actually activated.
+    micromamba run -n r_seurat Rscript -e '
+        remotes::install_github("immunogenomics/presto", ref = "v1.1.0",
+                                 dependencies = FALSE, upgrade = "never")
+        stopifnot(requireNamespace("presto", quietly = TRUE))
+    '
+
+    micromamba clean --all --yes
+
+%environment
+    # The image presents a working environment on its own; a pipeline should never have to set
+    # variables to make it function.
+    export PATH=/opt/conda/envs/r_seurat/bin:/opt/conda/bin:$PATH
+
+    # Guards against Apptainer's $HOME bind-mount: a host ~/.Rprofile or ~/.Renviron would
+    # otherwise run inside the container and could repoint library paths or CRAN mirrors,
+    # succeeding with whatever the host user happens to have configured rather than what this
+    # image ships. Same failure mode python_cpu's JUPYTER_PATH guards against, for R's
+    # equivalent of a stray host config file.
+    export R_PROFILE_USER=/dev/null
+    export R_ENVIRON_USER=/dev/null
+
+    export XDG_CACHE_HOME=/tmp/.cache
+    export PYTHONUNBUFFERED=1
+
+%runscript
+    # Not created in %post: a %post mkdir is owned by the build's (unprivileged sandbox) uid,
+    # which collides with whatever uid actually runs the container on a shared host. Same
+    # ordering python_cpu's Apptainer.def uses, for the same reason.
+    mkdir -p "$XDG_CACHE_HOME"
+    exec /usr/bin/tini -- "$@"
+
+%test
+    set -e
+    export PATH=/opt/conda/envs/r_seurat/bin:/opt/conda/bin:$PATH
+    export R_PROFILE_USER=/dev/null
+    export R_ENVIRON_USER=/dev/null
+    mkdir -p "$XDG_CACHE_HOME"
+
+    Rscript -e '
+        suppressPackageStartupMessages({
+            library(Seurat)
+            library(optparse)
+            library(dplyr)
+            library(tidyr)
+            library(ggplot2)
+            library(reshape2)
+            library(EnhancedVolcano)
+        })
+        stopifnot(requireNamespace("presto", quietly = TRUE))
+        cat("R runtime ok\n")
+    '
+
+    quarto --version
+
+    # The guarantees above, asserted rather than assumed.
+    case "$(command -v Rscript)" in
+        /opt/conda/envs/r_seurat/bin/Rscript) ;;
+        *) echo "Rscript is $(command -v Rscript), not the env"; exit 1 ;;
+    esac
+    echo "configures itself: ok"

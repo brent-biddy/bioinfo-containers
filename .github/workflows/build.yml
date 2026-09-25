@@ -4,10 +4,12 @@ name: Build check
 # Each definition's %test runs against the finished SIF, which is where the image's guarantees
 # are asserted -- that it configures itself rather than expecting a caller to.
 #
-# All three handled identically -- same steps, no GPU-specific tooling. A RAPIDS build was
+# All four handled identically -- same steps, no GPU-specific tooling. A RAPIDS build was
 # thought not to fit a hosted runner; it does, with room to spare (86 GB free, 11 GB image,
 # ~12 minutes). cellpose_gpu bootstraps from a published python_cpu SIF, so it needs no such
 # room and no GPU on the runner -- CUDA package resolution works from CONDA_OVERRIDE_CUDA alone.
+# r_seurat has no such dependency either -- it bootstraps from mambaorg/micromamba directly,
+# same as python_cpu, just with an R rather than a Python environment.yml.
 #
 # Only the image(s) actually touched get built -- see the `changes` job. python_gpu's
 # Apptainer.def copies definitions/python_cpu/environment.yml in directly at build time (so the
@@ -60,6 +62,9 @@ jobs:
               - '.github/workflows/build.yml'
             cellpose_gpu:
               - 'definitions/cellpose_gpu/**'
+              - '.github/workflows/build.yml'
+            r_seurat:
+              - 'definitions/r_seurat/**'
               - '.github/workflows/build.yml'
 
   build:
