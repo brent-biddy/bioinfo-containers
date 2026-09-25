@@ -17,6 +17,14 @@
 # version it was compiled against, which can trail the Matrix build the solver picks for this
 # exact package set -- verified against a real render (Seurat object creation + VlnPlot through
 # Quarto/knitr) that it doesn't affect output.
+# FindMarkers/FindAllMarkers' default Wilcoxon test is dramatically faster with the presto
+# package (Seurat prints as much at runtime), but conda's r-presto tops out at an r44 build --
+# incompatible with r-seurat=5.5.1's r-base=4.5.3. So presto is built from source in
+# Apptainer.def instead (immunogenomics/presto isn't on CRAN/bioconda at a compatible R
+# version at all). r-data.table below is presto's one Import not already pulled in by
+# something else here (Rcpp/RcppArmadillo come via Seurat itself; dplyr/tidyr/purrr/tibble/
+# rlang/Matrix are already explicit or transitive). The compiler toolchain
+# (c-compiler/cxx-compiler/make) and r-remotes exist only to build and fetch it.
 name: r_seurat
 
 channels:
@@ -33,3 +41,8 @@ dependencies:
   - r-reshape2=1.4.5
   - r-matrix=1.7_6
   - bioconductor-enhancedvolcano=1.28.2
+  - r-data.table=1.18.6.1
+  - r-remotes=2.5.0
+  - c-compiler
+  - cxx-compiler
+  - make

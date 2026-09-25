@@ -36,6 +36,20 @@ From: mambaorg/micromamba:1.5.10-jammy
 
     test -f /environment.yml
     micromamba create -y -n r_seurat -f /environment.yml
+
+    # presto: not on CRAN, and conda's r-presto tops out at an r44 build (incompatible with
+    # this env's r-base=4.5.3) -- see environment.yml. Pinned to the v1.1.0 tag rather than
+    # master, and dependencies=FALSE because every one of presto's Imports is already in the
+    # conda env (see environment.yml's comment) -- letting remotes resolve them itself would
+    # mean CRAN source builds picking their own versions, silently drifting from what's pinned.
+    # micromamba run, not a direct path to Rscript: R shells out to `make`/the compilers for
+    # the compiled step below, and those are only on PATH once the env is actually activated.
+    micromamba run -n r_seurat Rscript -e '
+        remotes::install_github("immunogenomics/presto", ref = "v1.1.0",
+                                 dependencies = FALSE, upgrade = "never")
+        stopifnot(requireNamespace("presto", quietly = TRUE))
+    '
+
     micromamba clean --all --yes
 
 %environment
@@ -78,6 +92,7 @@ From: mambaorg/micromamba:1.5.10-jammy
             library(reshape2)
             library(EnhancedVolcano)
         })
+        stopifnot(requireNamespace("presto", quietly = TRUE))
         cat("R runtime ok\n")
     '
 
