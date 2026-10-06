@@ -67,6 +67,9 @@ From: mambaorg/micromamba:1.5.10-jammy
     # IPython's own config dir defaults under $HOME too; same fix, quieter failure (a warning,
     # not a crash), but still not something --no-home should leave to chance.
     export IPYTHONDIR=/tmp/ipython
+    # celltypist mkdir's its model folder (default ~/.celltypist) at import, so a read-only
+    # $HOME fails the import outright. It creates the folder itself, so no mkdir is needed below.
+    export CELLTYPIST_FOLDER=/tmp/celltypist
     export PYTHONUNBUFFERED=1
     export SCIPY_ARRAY_API=1
 
@@ -95,6 +98,7 @@ From: mambaorg/micromamba:1.5.10-jammy
 import nbformat, papermill, yaml, session_info
 import spatialdata, spatialdata_io, spatialdata_plot, scanpy, squidpy
 import geopandas, skimage, tifffile
+import celltypist
 print("python runtime ok")
 PY
 

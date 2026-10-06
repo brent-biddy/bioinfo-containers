@@ -62,6 +62,8 @@ dependencies:
   - python-igraph=1.0.0
   - leidenalg=0.12.0
   - session-info=1.0.0
+  # celltypist's one dependency the rest of this image did not already bring.
+  - openpyxl=3.1.5
 
   # Geometry and imaging: segmentation boundaries and label rasters
   - geopandas=1.1.4
@@ -80,3 +82,5 @@ dependencies:
     - session-info2==0.4.1
     - dask-image==2026.5.0
     - omnipath==1.0.12
+    # Not on conda-forge (pip and bioconda only).
+    - celltypist==1.7.1
