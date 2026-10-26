@@ -25,6 +25,11 @@
 # something else here (Rcpp/RcppArmadillo come via Seurat itself; dplyr/tidyr/purrr/tibble/
 # rlang/Matrix are already explicit or transitive). The compiler toolchain
 # (c-compiler/cxx-compiler/make) and r-remotes exist only to build and fetch it.
+# r-anndata writes h5ad straight from R (see bin/export_reference.R in the repos that use it),
+# so a Seurat reference can reach scanpy without an intermediate Matrix Market/CSV export. It
+# is a reticulate wrapper around Python's anndata, so the env carries a Python and that
+# anndata too -- pinned to python_cpu's versions, so a file written here is read by the
+# package version that will actually read it. r-reticulate comes in as r-anndata's dependency.
 name: r_seurat
 
 channels:
@@ -42,6 +47,9 @@ dependencies:
   - r-matrix=1.7_6
   - bioconductor-enhancedvolcano=1.28.2
   - r-data.table=1.18.6.1
+  - r-anndata=0.9.0
+  - python=3.12.13
+  - anndata=0.12.19
   - r-remotes=2.5.0
   - c-compiler
   - cxx-compiler

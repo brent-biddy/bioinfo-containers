@@ -65,6 +65,10 @@ From: mambaorg/micromamba:1.5.10-jammy
     export R_PROFILE_USER=/dev/null
     export R_ENVIRON_USER=/dev/null
 
+    # r-anndata reaches Python through reticulate; point it at the env's own interpreter so it
+    # never picks up a host Python through the $HOME bind-mount.
+    export RETICULATE_PYTHON=/opt/conda/envs/r_seurat/bin/python
+
     export XDG_CACHE_HOME=/tmp/.cache
     export PYTHONUNBUFFERED=1
 
@@ -80,6 +84,7 @@ From: mambaorg/micromamba:1.5.10-jammy
     export PATH=/opt/conda/envs/r_seurat/bin:/opt/conda/bin:$PATH
     export R_PROFILE_USER=/dev/null
     export R_ENVIRON_USER=/dev/null
+    export RETICULATE_PYTHON=/opt/conda/envs/r_seurat/bin/python
     mkdir -p "$XDG_CACHE_HOME"
 
     Rscript -e '
@@ -94,6 +99,24 @@ From: mambaorg/micromamba:1.5.10-jammy
         })
         stopifnot(requireNamespace("presto", quietly = TRUE))
         cat("R runtime ok\n")
+    '
+
+    # Round trip: write an h5ad from R with a sparse matrix, read it back, and confirm the
+    # counts and a categorical column survive -- the exact path export_reference.R takes.
+    Rscript -e '
+        library(Matrix)
+        counts <- Matrix::rsparsematrix(20, 10, 0.3)
+        counts@x <- round(abs(counts@x) * 10) + 1
+        obs <- data.frame(label = factor(rep(c("a", "b"), 5)), row.names = paste0("c", 1:10))
+        var <- data.frame(row.names = paste0("g", 1:20))
+        adata <- anndata::AnnData(X = t(counts), obs = obs, var = var)
+        path <- tempfile(fileext = ".h5ad")
+        adata$write_h5ad(path)
+        back <- anndata::read_h5ad(path)
+        stopifnot(identical(dim(back), c(10L, 20L)))
+        stopifnot(all(as.matrix(back$X) == as.matrix(t(counts))))
+        stopifnot(identical(as.character(back$obs$label), as.character(obs$label)))
+        cat("anndata round trip ok\n")
     '
 
     quarto --version
