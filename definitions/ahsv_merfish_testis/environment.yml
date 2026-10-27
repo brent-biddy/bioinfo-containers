@@ -1,0 +1,60 @@
+# The MERFISH transcript-heatmap image: the environment from ahsv/merfish-testis
+# (spatial_minimal.yml), for running its notebook and scripts.
+#
+# Standalone, not an overlay on python_cpu: it has no scanpy/spatialdata stack and its own
+# dependencies (napari, pyimagej, opencv) that python_cpu does not carry.
+#
+# Differences from the source file, all deliberate:
+#   - `defaults` is dropped. The set solves from conda-forge alone, and mixing the two channels
+#     is how a solve ends up with packages built against different C++ runtimes.
+#   - plotly is added. The notebook imports it; the source file never listed it.
+#   - nbconvert is added, so `jupyter nbconvert --execute` can run the notebook in the image.
+#
+# Only python is pinned so far. The solver's pick was 3.14, and the first build died in %test:
+# pycircstat imports nose, which imports `imp`, removed in Python 3.12. Everything else is
+# still the solver's pick (numpy 2.x, pandas 3.x), almost certainly newer than whatever the
+# notebook was written against. The rule in python_cpu's environment.yml applies: newer is not
+# the goal, working is. Run the notebook, and once it works pin the versions from
+# `micromamba env export` -- do not pin to a dry-run solve, which has never executed this code.
+name: ahsv_merfish_testis
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.11
+  - pip
+
+  - ipykernel
+  - ipywidgets
+  - nbconvert
+  - h5py
+  - pytables
+  - pyarrow
+  - openpyxl
+  - pandas
+  - numpy
+  - scipy
+  - scikit-learn
+  - scikit-image
+  - scikit-misc
+  - statsmodels
+  - shapely
+  - dask
+  - pympler
+  - requests
+
+  # Imaging
+  - tifffile
+  - pillow
+  - opencv
+  - roifile
+  - napari
+  - pyimagej
+  - pycircstat
+
+  # Plotting and report output
+  - seaborn
+  - plotly
+  - python-kaleido
+  - reportlab

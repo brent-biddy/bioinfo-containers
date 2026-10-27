@@ -10,6 +10,7 @@ Versioned images for the lab, on Docker Hub under `babiddy755`.
 | `python_gpu` | steps that cluster on a card | `python_cpu`'s environment + RAPIDS; **7.9 GB** |
 | `cellpose_gpu` | segmentation with cellpose | `python_cpu`'s environment + torch + cellpose; **6.6 GB** |
 | `r_seurat` | R/Seurat repos (e.g. `scrna-mouse-testis-chromatin-remodelers`) | Seurat, no CUDA; no Jupyter kernel needed — Quarto renders R through knitr directly |
+| `ahsv_merfish_testis` | the notebook and scripts in `ahsv/merfish-testis` (MERFISH transcript heatmaps) | that repo's `spatial_minimal.yml` plus plotly and nbconvert, on Python 3.11; standalone, not an overlay on `python_cpu`; **1.2 GB** |
 | `python_spatial` | **frozen.** What the repos used before these two | the whole stack in one image |
 
 **`cellpose_gpu` bootstraps from `python_cpu`, not `python_gpu`**, even though a segmentation

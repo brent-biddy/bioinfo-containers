@@ -1,0 +1,79 @@
+# The MERFISH transcript-heatmap image: the notebook and scripts in ahsv/merfish-testis.
+#
+# Standalone -- see environment.yml. No Quarto: that repo runs a Jupyter notebook, not a .qmd.
+#
+# %files paths are relative to the working directory at build time -- Apptainer has no
+# build-context flag -- so build from the repository root:
+#
+#   apptainer build ahsv_merfish_testis.sif definitions/ahsv_merfish_testis/Apptainer.def
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10-jammy
+
+%files
+    definitions/ahsv_merfish_testis/environment.yml /environment.yml
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        procps \
+        tini
+    rm -rf /var/lib/apt/lists/*
+
+    test -f /environment.yml
+    micromamba create -y -n ahsv_merfish_testis -f /environment.yml
+    /opt/conda/envs/ahsv_merfish_testis/bin/python -m ipykernel install --sys-prefix \
+        --name ahsv_merfish_testis --display-name "Python (ahsv_merfish_testis)"
+    micromamba clean --all --yes
+
+%environment
+    export PATH=/opt/conda/envs/ahsv_merfish_testis/bin:/opt/conda/bin:$PATH
+    export CONDA_PREFIX=/opt/conda/envs/ahsv_merfish_testis
+
+    # Same reason as python_cpu: $HOME is bind-mounted, so a host kernelspec could shadow the
+    # image's and the notebook would run with the wrong package versions.
+    export JUPYTER_PATH=/opt/conda/envs/ahsv_merfish_testis/share/jupyter
+    export JUPYTER_DATA_DIR=/tmp/jupyter-data
+    export IPYTHONDIR=/tmp/ipython
+
+    export MPLCONFIGDIR=/tmp/matplotlib
+    export XDG_CACHE_HOME=/tmp/.cache
+    # napari is imported for its data structures; on a node with no display Qt must not try to
+    # open one.
+    export QT_QPA_PLATFORM=offscreen
+    export PYTHONUNBUFFERED=1
+
+%runscript
+    # Created here rather than in %post for the reason python_cpu's Apptainer.def gives: a
+    # %post mkdir is owned by the build's uid, not the uid that runs the container.
+    mkdir -p "$MPLCONFIGDIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"
+    exec /usr/bin/tini -- "$@"
+
+%test
+    set -e
+    export PATH=/opt/conda/envs/ahsv_merfish_testis/bin:/opt/conda/bin:$PATH
+    export JUPYTER_PATH=/opt/conda/envs/ahsv_merfish_testis/share/jupyter
+    mkdir -p "$MPLCONFIGDIR" "$XDG_CACHE_HOME" "$JUPYTER_DATA_DIR" "$IPYTHONDIR"
+
+    python - <<'PY'
+import numpy, pandas, scipy, sklearn, skimage, shapely, statsmodels, seaborn, plotly
+import matplotlib.pyplot as plt
+import h5py, tables, pyarrow, openpyxl, tifffile, cv2, roifile, reportlab, pycircstat
+from skimage.measure import label
+import napari, imagej
+import nbconvert, nbclient, nbformat
+print("python runtime ok")
+PY
+
+    test -n "$JUPYTER_PATH" || { echo "JUPYTER_PATH unset"; exit 1; }
+    test -n "$CONDA_PREFIX" || { echo "CONDA_PREFIX unset"; exit 1; }
+    case "$(command -v python)" in
+        /opt/conda/envs/ahsv_merfish_testis/bin/python) ;;
+        *) echo "python is $(command -v python), not the env"; exit 1 ;;
+    esac
+    jupyter kernelspec list 2>/dev/null | grep -q "/opt/conda/envs/ahsv_merfish_testis" \
+        || { echo "image kernelspec not discoverable"; exit 1; }
+    echo "configures itself: ok"

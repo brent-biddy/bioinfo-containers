@@ -66,6 +66,9 @@ jobs:
             r_seurat:
               - 'definitions/r_seurat/**'
               - '.github/workflows/build.yml'
+            ahsv_merfish_testis:
+              - 'definitions/ahsv_merfish_testis/**'
+              - '.github/workflows/build.yml'
 
   build:
     needs: changes
